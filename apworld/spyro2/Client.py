@@ -1146,9 +1146,8 @@ class Spyro2Client(BizHawkClient):
             if level.Name == "Dragon Shores":
                 for i in range(10):
                     id = base_id + level_offset * level.LevelId + i
-                    if ctx.slot_data["options"]["goal"] == GoalOptions.TEN_TOKENS:
-                        if shores_tokens[4 * i] != 0 and id not in self.locations_list:
-                            tokensToSend.add(id)
+                    if shores_tokens[4 * i] != 0 and id not in self.locations_list:
+                        tokensToSend.add(id)
                     location_offset += 1
             level_index += 1
 
