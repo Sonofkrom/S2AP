@@ -116,6 +116,7 @@ class Spyro2World(World):
         self.enabled_location_categories.add(Spyro2LocationCategory.ORB)
         self.enabled_location_categories.add(Spyro2LocationCategory.EVENT)
         self.enabled_location_categories.add(Spyro2LocationCategory.SHORES_TOKEN)
+            self.enabled_location_categories.add(Spyro2LocationCategory.SHORES_TOKEN)
         if self.options.enable_25_pct_gem_checks.value:
             self.enabled_location_categories.add(Spyro2LocationCategory.GEM_25)
         if self.options.enable_50_pct_gem_checks.value:
@@ -138,6 +139,7 @@ class Spyro2World(World):
         if self.options.enable_gemsanity.value != GemsanityOptions.OFF:
             self.enabled_location_categories.add(Spyro2LocationCategory.GEM)
         bundle_count = int(21 * 400 / self.options.gemsanity_gem_bundle_size)
+        bundle_count = int(25 * 400 / self.options.gemsanity_gem_bundle_size)
         if not self.settings.allow_full_gemsanity and self.multiworld.players > 1:
             if self.options.enable_gemsanity.value == GemsanityOptions.FULL:
                  raise OptionError(f"Spyro 2: Player {self.player_name} has gemsanity set to full, which adds 2546 locations "
@@ -226,7 +228,7 @@ class Spyro2World(World):
         # Create Regions
         regions: Dict[str, Region] = {}
         regions["Menu"] = self.create_region("Menu", [])
-        regions.update({region_name: self.create_region(region_name, location_tables[region_name]) for region_name in (self.all_levels + ["Inventory"])})
+        regions.update({region_name: self.create_region(region_name, location_tables[region_name]) for region_name in (self.all_levels + ["Inventory", "Dragon Shores Interior"])})
         
         # Connect Regions
         def create_connection(from_region: str, to_region: str):
@@ -270,6 +272,7 @@ class Spyro2World(World):
 
         create_connection("Winter Tundra", "Ripto's Arena")
         create_connection("Winter Tundra", "Dragon Shores")
+        create_connection("Dragon Shores", "Dragon Shores Interior")
         
     # For each region, add the associated locations retrieved from the corresponding location_table
     def create_region(self, region_name, location_table) -> Region:
@@ -346,17 +349,47 @@ class Spyro2World(World):
         self.multiworld.itempool += itempool
 
     def create_item(self, name: str) -> Item:
+        forced_useful = False
+        if name.endswith(" (Useful)"):
+            name = name[:-9]
+            forced_useful = True
         data = self.item_name_to_id[name]
         useful_categories = {}
 
-        if name in key_item_names or \
+        if forced_useful:
+            item_classification = ItemClassification.useful
+        elif name in key_item_names or \
                 name == "Glitched Item" or \
                 name == "Permanent Fireball Ability" or \
-                item_dictionary[name].category in [Spyro2ItemCategory.LEVEL_UNLOCK, Spyro2ItemCategory.TALISMAN, Spyro2ItemCategory.ORB, Spyro2ItemCategory.EVENT, Spyro2ItemCategory.MONEYBAGS, Spyro2ItemCategory.SKILLPOINT_GOAL, Spyro2ItemCategory.GEM, Spyro2ItemCategory.GEMSANITY_PARTIAL] or \
+                item_dictionary[name].category in [Spyro2ItemCategory.LEVEL_UNLOCK, Spyro2ItemCategory.TALISMAN, Spyro2ItemCategory.ORB, Spyro2ItemCategory.GEMSANITY_PARTIAL, Spyro2ItemCategory.EVENT, Spyro2ItemCategory.MONEYBAGS, Spyro2ItemCategory.SKILLPOINT_GOAL] or \
                 self.options.enable_progressive_sparx_logic.value and name == 'Progressive Sparx Health Upgrade' or \
                 name in ["Double Jump Ability"] and self.options.trick_difficulty.value != TrickDifficultyOptions.OFF or \
                 name == "Dragon Shores Token" and self.options.goal.value == GoalOptions.TEN_TOKENS:
             item_classification = ItemClassification.progression
+        elif item_dictionary[name].category in [Spyro2ItemCategory.GEM]:
+            if name.endswith(" Red Gem"):
+                if self.options.enable_gem_checks or self.options.goal.value == GoalOptions.HUNDRED_PERCENT or \
+                        self.options.enable_total_gem_checks and self.options.max_total_gem_checks >= 9500:
+                    item_classification = ItemClassification.progression
+                else:
+                    item_classification = ItemClassification.useful
+            elif name.endswith(" Green Gem"):
+                if self.options.enable_gem_checks or self.options.enable_75_pct_gem_checks or \
+                        self.options.goal.value in [GoalOptions.TEN_TOKENS, GoalOptions.HUNDRED_PERCENT] or \
+                        self.options.enable_total_gem_checks and self.options.max_total_gem_checks >= 8000:
+                    item_classification = ItemClassification.progression
+                else:
+                    item_classification = ItemClassification.useful
+            elif name.endswith(" Blue Gem"):
+                if self.options.enable_25_pct_gem_checks or self.options.enable_50_pct_gem_checks or \
+                        self.options.enable_75_pct_gem_checks or self.options.enable_gem_checks or \
+                        self.options.goal.value in [GoalOptions.TEN_TOKENS, GoalOptions.HUNDRED_PERCENT] or \
+                        self.options.enable_total_gem_checks and self.options.max_total_gem_checks >= 2500:
+                    item_classification = ItemClassification.progression
+                else:
+                    item_classification = ItemClassification.useful
+            else:
+                item_classification = ItemClassification.progression
         elif item_dictionary[name].category in useful_categories or \
                 not self.options.enable_progressive_sparx_logic.value and name == 'Progressive Sparx Health Upgrade' or \
                 name in ["Double Jump Ability"] and self.options.trick_difficulty.value == TrickDifficultyOptions.OFF:
@@ -366,7 +399,7 @@ class Spyro2World(World):
         else:
             item_classification = ItemClassification.filler
 
-        return Spyro2Item(name, item_classification, data, self.player)
+        return Spyro2Item(name, item_classification, data, self)
 
     def get_filler_item_name(self) -> str:
         return "Extra Life"
@@ -522,58 +555,10 @@ class Spyro2World(World):
                                 gem_restriction.restriction_lambda
                             )
 
-        # Dragon Shores rules
-        set_indirect_rule(self, "Dragon Shores", lambda state: logic.can_enter_shores(state))
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Tunnel o' Love", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Shooting Gallery I", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Shooting Gallery II", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Shooting Gallery III", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Rollercoaster I", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Rollercoaster II", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Rollercoaster III", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Dunk Tank I", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Dunk Tank II", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
-        if Spyro2LocationCategory.SHORES_TOKEN in self.enabled_location_categories:
-            set_rule(
-                self.multiworld.get_location("Dragon Shores: Dunk Tank III", self.player),
-                lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55)
-            )
+        # Dragon Shores Interior rules
+        if self.options.goal == GoalOptions.TEN_TOKENS:
+            set_indirect_rule(self, "Dragon Shores", lambda state: logic.can_enter_shores(state))
+            set_indirect_rule(self, "Dragon Shores Interior", lambda state: has_total_accessible_gems(self, state, 8000) and state.has("Orb", self.player, 55))
 
         # Level Gem Count rules
         for level in self.all_levels:

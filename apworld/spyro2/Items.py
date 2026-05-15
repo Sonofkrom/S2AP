@@ -29,6 +29,24 @@ class Spyro2ItemData(NamedTuple):
 
 class Spyro2Item(Item):
     game: str = "Spyro 2"
+    gem_count: int = 0
+    gem_level_name: str = ""
+
+    def __init__(self, name, item_classification, data, world) -> None:
+        super().__init__(name, item_classification, data, world.player)
+        if name.endswith(" Red Gem"):
+            self.gem_level_name = name.split(" Red Gem")[0]
+            self.gem_count = 1
+        elif name.endswith(" Green Gem"):
+            self.gem_level_name = name.split(" Green Gem")[0]
+            self.gem_count = 2
+        elif name.endswith(" Blue Gem"):
+            self.gem_level_name = name.split(" Blue Gem")[0]
+            self.gem_count = 5
+        elif name.endswith(" Gold Gem"):
+            self.gem_level_name = name.split(" Gold Gem")[0]
+            self.gem_count = 10
+        elif name.endswith(" Pink Gem"):
 
     @staticmethod
     def get_name_to_id() -> dict:

@@ -56,7 +56,7 @@ class Spyro2Location(Location):
         table_order = [
             "Summer Forest","Glimmer","Idol Springs","Colossus","Hurricos","Aquaria Towers","Sunny Beach","Ocean Speedway","Crush's Dungeon",
             "Autumn Plains","Skelos Badlands","Crystal Glacier","Breeze Harbor","Zephyr","Metro Speedway","Scorch","Shady Oasis","Magma Cone","Fracture Hills","Icy Speedway","Gulp's Overlook",
-            "Winter Tundra","Mystic Marsh","Cloud Temples","Canyon Speedway","Robotica Farms","Metropolis","Dragon Shores","Ripto's Arena",
+            "Winter Tundra","Mystic Marsh","Cloud Temples","Canyon Speedway","Robotica Farms","Metropolis","Dragon Shores Interior","Ripto's Arena",
             "Inventory"
         ]
 
@@ -285,6 +285,8 @@ location_tables = {
         Spyro2LocationData("Metropolis: Ox bombing", "Orb", Spyro2LocationCategory.ORB),
     ],
     "Dragon Shores": [
+    ],
+    "Dragon Shores Interior": [
         Spyro2LocationData("Dragon Shores: Tunnel o' Love", "Dragon Shores Token", Spyro2LocationCategory.SHORES_TOKEN),
         Spyro2LocationData("Dragon Shores: Shooting Gallery I", "Dragon Shores Token", Spyro2LocationCategory.SHORES_TOKEN),
         Spyro2LocationData("Dragon Shores: Shooting Gallery II", "Dragon Shores Token", Spyro2LocationCategory.SHORES_TOKEN),
