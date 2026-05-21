@@ -246,7 +246,7 @@ class Spyro2Client(BizHawkClient):
 
     apworld_manifest = orjson.loads(pkgutil.get_data(__name__, "archipelago.json").decode("utf-8"))
     client_version = apworld_manifest["world_version"]
-    supported_versions = ["2.0.0", "2.0.0-rc"]
+    supported_versions = ["2.0.0", "2.0.0-rc", "2.0.1"]
 
     boolsyncprogress = False
     syncWaitConfirm = False
