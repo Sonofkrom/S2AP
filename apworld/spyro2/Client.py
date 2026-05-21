@@ -913,7 +913,7 @@ class Spyro2Client(BizHawkClient):
                 ]
                 await self.locations_handling(ctx, Locations_Reads)
 
-            if not boolIsFirstBoot and gameStatus not in [GameStatus.Paused, GameStatus.LoadingWorld]:
+            if not boolIsFirstBoot and gameStatus not in [GameStatus.Paused, GameStatus.LoadingWorld, GameStatus.Cutscene]:
                 # ======== Gemsanity Code Handling ========
                 if ctx.slot_data["options"]["enable_gemsanity"]:
                     gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep]
