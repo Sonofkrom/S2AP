@@ -250,6 +250,10 @@ namespace S2AP
         public static uint ShadyHeadbashCheck = 0x7d6c0;
         public static uint GulpDoubleDamage = 0x120c5e;
 
+        public static uint AquariaSharkDeathJAL = 0x788e8;
+        public static uint AquariaSharkDeathlink = 0x84788;
+        public static uint AquariaSharkDeathlinkCode = 0x84790;
+
         public const uint GuidebookText = 0x00010308;
 
         public const uint AnalogReadAddressOne = 0x12320;
