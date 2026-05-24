@@ -589,6 +589,7 @@ class Spyro2Client(BizHawkClient):
                 "globalGemRespawnFix": (RAM.globalGemRespawnFixAddress, 4, "MainRAM"),
                 "localGemRespawnFix": (RAM.localGemRespawnFixAddress, 4, "MainRAM"),
                 "playBeep": (RAM.playBeepAddress, 4, "MainRAM"),
+                "gemPopup": (RAM.gemPopupAddress, 4, "MainRAM"),
                 "doubleJumpLine1": (RAM.DoubleJumpAddress1, 4, "MainRAM"),
                 "doubleJumpLine2": (RAM.DoubleJumpAddress2, 4, "MainRAM"),
                 "permanentFireball": (RAM.PermanentFireballAddress, 1, "MainRAM"),
@@ -674,6 +675,7 @@ class Spyro2Client(BizHawkClient):
             globalGemRespawnFix = readValues["globalGemRespawnFix"]
             localGemRespawnFix = readValues["localGemRespawnFix"]
             playBeep = readValues["playBeep"]
+            gemPopup = readValues["gemPopup"]
             doubleJumpLine1 = readValues["doubleJumpLine1"]
             doubleJumpLine2 = readValues["doubleJumpLine2"]
             permanentFireball = readValues["permanentFireball"]
@@ -916,7 +918,7 @@ class Spyro2Client(BizHawkClient):
             if not boolIsFirstBoot and gameStatus not in [GameStatus.Paused, GameStatus.LoadingWorld, GameStatus.Cutscene]:
                 # ======== Gemsanity Code Handling ========
                 if ctx.slot_data["options"]["enable_gemsanity"]:
-                    gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep]
+                    gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep, gemPopup]
                     gemsanityWrites = self.handleGemsanity(gemsanity_reads)
                     if len(gemsanityWrites) > 0:
                         await bizhawk.write(ctx.bizhawk_ctx, gemsanityWrites)
@@ -1283,6 +1285,7 @@ class Spyro2Client(BizHawkClient):
         globalGemRespawnFix = gemsanity_reads[2]
         localGemRespawnFix = gemsanity_reads[3]
         playBeep = gemsanity_reads[4]
+        gemPopup = gemsanity_reads[5]
         gemsanity_writes = []
 
         # Disable updating local and global gem counts on collecting a gem, loading into a level, and respawning.
@@ -1296,6 +1299,8 @@ class Spyro2Client(BizHawkClient):
             gemsanity_writes += [(RAM.localGemRespawnFixAddress, (0).to_bytes(4, "little"), "MainRAM")]
         if playBeep != 0:
             gemsanity_writes += [(RAM.playBeepAddress, (0).to_bytes(4, "little"), "MainRAM")]
+        if gemPopup == 0x14620012:   # bne v1,v0,0x80039780
+            gemsanity_writes += [(RAM.gemPopupAddress, (0x0800e5e0).to_bytes(4, "little"), "MainRAM")]  # j 0x80039780
 
         return gemsanity_writes
 
