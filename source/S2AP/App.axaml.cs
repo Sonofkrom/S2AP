@@ -62,6 +62,7 @@ public partial class App : Application
     private static byte _previousLifeCount { get; set; }
     private static bool _justDied { get; set; }
     private static bool _justReceivedDeathLink { get; set; }
+    private static bool _lastStatusWasBonk { get; set; }
     private static DeathLinkService _deathLinkService { get; set; }
     // Avoid marking the playthrough complete or opening the Ripto door before this value is populated.
     private static int _requiredOrbs = 65;
@@ -962,6 +963,28 @@ public partial class App : Application
                 // Probably need to temporarily overwrite changes to this halfword elsewhere too.
                 Memory.Write(Addresses.DestructiveSpyroAddress, (short)0xFF);
             } // Turns off automatically on its own.
+            byte spyroState = Memory.ReadByte(Addresses.SpyroStateAddress);
+            byte health = Memory.ReadByte(Addresses.PlayerHealth);
+            bool bonkDeathlink = false;
+            if ((SpyroStates)spyroState == SpyroStates.Bonk)
+            {
+                if (!_lastStatusWasBonk)
+                {
+                    if (0 < health && health < 128)
+                    {
+                        Memory.WriteByte(Addresses.PlayerHealth, (byte)(health - 1));
+                    }
+                    else if (health == 0)
+                    {
+                        Memory.WriteByte(Addresses.SpyroStateAddress, (byte)SpyroStates.DeathPirouette);
+                        bonkDeathlink = true;
+                    }
+                }
+                _lastStatusWasBonk = true;
+            } else
+            {
+                _lastStatusWasBonk = false;
+            }
 
             LevelInGameIDs currentLevel = (LevelInGameIDs)Memory.ReadByte(Addresses.CurrentLevelAddress);
             if (currentLevel != _previousLevel && _handleGemsanity)
@@ -971,10 +994,8 @@ public partial class App : Application
             GameStatus gameStatus = (GameStatus)Memory.ReadByte(Addresses.GameStatus);
             if (_deathLinkService != null && !_hasSubmittedGoal)
             {
-                byte health = Memory.ReadByte(Addresses.PlayerHealth);
                 int zPos = Memory.ReadInt(Addresses.PlayerZPos);
                 int animationLength = Memory.ReadInt(Addresses.PlayerAnimationLength);
-                byte spyroState = Memory.ReadByte(Addresses.SpyroStateAddress);
                 byte spyroVelocityFlag = Memory.ReadByte(Addresses.PlayerVelocityStatus);
                 LevelInGameIDs[] deathLinkLevels = [
                     LevelInGameIDs.SummerForest,
@@ -2072,7 +2093,7 @@ public partial class App : Application
 
         _abilitiesTimer = new Timer();
         _abilitiesTimer.Elapsed += new ElapsedEventHandler(HandleAbilities);
-        _abilitiesTimer.Interval = 500;
+        _abilitiesTimer.Interval = 250;
         _abilitiesTimer.Enabled = true;
 
         _cosmeticsTimer = new Timer();
