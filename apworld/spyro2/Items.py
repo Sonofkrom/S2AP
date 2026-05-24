@@ -613,14 +613,13 @@ def BuildItemPool(world, count, options, locked_levels):
             for i in range(0, 4):
                 allowed_misc_items.append(item)
 
+    trap_percent = options.trap_filler_percent.value
     if remaining_count > 0 and options.trap_filler_percent.value > 0 and len(allowed_trap_items) == 0:
-        raise OptionError(f"Trap percentage is set to {options.trap_filler_percent.value}, but none have been turned on.")
-    if remaining_count > 0 and options.trap_filler_percent.value < 100 and len(allowed_misc_items) == 0:
-        raise OptionError(f"{100 - options.trap_filler_percent.value} percent of filler items are meant to be non-traps, but no non-trap items have been turned on.")
+        trap_percent = 0
 
     # Get the correct blend of traps and filler items.
     for i in range(remaining_count):
-        if multiworld.random.random() * 100 < options.trap_filler_percent.value:
+        if multiworld.random.random() * 100 < trap_percent:
             itemList = [item for item in allowed_trap_items]
         else:
             itemList = [item for item in allowed_misc_items]
