@@ -1075,7 +1075,7 @@ public partial class App : Application
                 }
             }
 
-            if (gameStatus != GameStatus.Paused && gameStatus != GameStatus.LoadingWorld)
+            if (gameStatus != GameStatus.Paused && gameStatus != GameStatus.LoadingWorld && gameStatus != GameStatus.Cutscene)
             {
                 if (gemsanityOption != GemsanityOptions.Off)
                 {
