@@ -39,8 +39,8 @@ namespace S2AP;
 public partial class App : Application
 {
     // TODO: Remember to set this in S2AP.Desktop as well.
-    public static string Version = "2.0.0";
-    public static List<string> SupportedVersions = ["1.2.0-rc", "1.2.0", "2.0.0-rc", "2.0.0"];
+    public static string Version = "2.0.1";
+    public static List<string> SupportedVersions = ["1.2.0-rc", "1.2.0", "2.0.0-rc", "2.0.0", "2.0.1"];
 
     public static MainWindowViewModel Context;
     public static ArchipelagoClient Client { get; set; }
@@ -48,7 +48,6 @@ public partial class App : Application
     public static List<ILocation> GameLocations { get; set; }
     private static readonly object _lockObject = new object();
     private static ConcurrentQueue<string> _cosmeticEffects { get; set; }
-    private static byte _sparxUpgrades { get; set; }
     private static bool _hasSubmittedGoal { get; set; }
     private static bool _useQuietHints { get; set; }
     private static int _unlockedLevels { get; set; }
@@ -166,7 +165,6 @@ public partial class App : Application
         }
         Context.Host = lastConnectionDetails["host"];
         Context.Slot = lastConnectionDetails["slot"];
-        _sparxUpgrades = 0;
         _hasSubmittedGoal = false;
         _useQuietHints = true;
         // No level ID set
@@ -752,7 +750,7 @@ public partial class App : Application
                     }
                     break;
                 case "Progressive Sparx Health Upgrade":
-                    _sparxUpgrades++;
+                    // To avoid desyncs, these are recounted in real time.
                     break;
                 case "Double Jump Ability":
                 case "Permanent Fireball Ability":
@@ -1347,14 +1345,23 @@ public partial class App : Application
             return;
         }
         byte currentHealth = Memory.ReadByte(Addresses.PlayerHealth);
-        // Don't adjust negative health, which breaks deathlink.
-        if (currentHealth <= 128 && currentHealth > _sparxUpgrades)
+        // Doing these checks trades efficency for correctness.
+        // We could probably do this check only upon connecting or receiving
+        // a health upgrade, but this is guaranteed to be correct.
+        ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
+        byte maxHealth = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Progressive Sparx Health Upgrade").Count() ?? 0);
+        if (sparxOption == ProgressiveSparxHealthOptions.Blue)
         {
-            Memory.WriteByte(Addresses.PlayerHealth, _sparxUpgrades);
+            maxHealth += 2;
         }
-        if (_sparxUpgrades == 3)
+        else if (sparxOption == ProgressiveSparxHealthOptions.Green)
         {
-            _sparxTimer.Enabled = false;
+            maxHealth += 1;
+        }
+        // Don't adjust negative health, which breaks deathlink.
+        if (currentHealth <= 128 && currentHealth > maxHealth)
+        {
+            Memory.WriteByte(Addresses.PlayerHealth, maxHealth);
         }
     }
     
@@ -2076,15 +2083,6 @@ public partial class App : Application
         ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
         if (sparxOption != ProgressiveSparxHealthOptions.Off)
         {
-            _sparxUpgrades = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Progressive Sparx Health Upgrade").Count() ?? 0);
-            if (sparxOption == ProgressiveSparxHealthOptions.Blue)
-            {
-                _sparxUpgrades += 2;
-            }
-            else if (sparxOption == ProgressiveSparxHealthOptions.Green)
-            {
-                _sparxUpgrades += 1;
-            }
             _sparxTimer = new Timer();
             _sparxTimer.Elapsed += new ElapsedEventHandler(HandleMaxSparxHealth);
             _sparxTimer.Interval = 500;
@@ -2118,7 +2116,6 @@ public partial class App : Application
     private static void OnDisconnected(object sender, EventArgs args)
     {
         // Avoid ongoing timers affecting a new game.
-        _sparxUpgrades = 0;
         _hasSubmittedGoal = false;
         _useQuietHints = true;
         _handleGemsanity = false;
