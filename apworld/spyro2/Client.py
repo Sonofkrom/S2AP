@@ -977,6 +977,14 @@ class Spyro2Client(BizHawkClient):
                 if len(colorChangeWrites) > 0:
                     await bizhawk.write(ctx.bizhawk_ctx, colorChangeWrites)
 
+                # ======== Musicsanity Handling ========
+                musicChangeReads = [
+
+                ]
+                musicChangeWrites = self.handleMusicChanges(ctx, musicChangeReads)
+                if len(musicChangeWrites) > 0:
+                    await bizhawk.write(ctx.bizhawk_ctx, musicChangeWrites)
+
                 # ======== Elora Text and Door Requirements ========
                 # Menuing out of Winter Tundra crashes the game on save file load,
                 # since the level ID doesn't change.
@@ -1578,6 +1586,48 @@ class Spyro2Client(BizHawkClient):
             if portalTextBlue != 0:
                 colorChangeWrites += [(RAM.PortalTextBlue, (0).to_bytes(1, "little"), "MainRAM")]
         return colorChangeWrites
+
+    def handleMusicChanges(self, ctx, musicChangeReads):
+        songs = musicChangeReads[0]
+
+        music_changes = ctx.slot_data["options"]["main_level_music_array_changes"]
+        for levelID in music_changes.keys():
+            pass
+
+        musicChangeWrites = []
+
+        #  bool musicValuesChanged = false;
+    #         if (mainLevelMusicChanges != null)
+    #         {
+    #             foreach (int levelID in mainLevelMusicChanges.Keys)
+    #             {
+    #                 byte song = Memory.ReadByte(Addresses.MainLevelMusicArray + (uint)levelID);
+    #                 if (song != (byte)mainLevelMusicChanges[levelID])
+    #                 {
+    #                     Memory.WriteByte(Addresses.MainLevelMusicArray + (uint)levelID, (byte)mainLevelMusicChanges[levelID]);
+    #                     musicValuesChanged = true;
+    #                 }
+    #             }
+    #         }
+    #         if (musicValuesChanged)
+    #         {
+    #             byte currentLevel = Memory.ReadByte(Addresses.CurrentLevelAddress);
+    #             if (mainLevelMusicChanges.ContainsKey((int)currentLevel))
+    #             {
+    #                 uint currentLevelSongStartOffset = 0x15f90 + Memory.ReadUInt(Addresses.FullMusicArray + (uint)(8 * mainLevelMusicChanges[(int)currentLevel]));
+    #                 uint currentLevelSongTimestamp = Memory.ReadUInt(Addresses.CurrentMusicData + 4);
+    #                 ushort currentLevelSongLength = Memory.ReadUShort(Addresses.FullMusicArray + (uint)(4 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+    #                 short currentLevelSongChannel = Memory.ReadShort(Addresses.FullMusicArray + (uint)(6 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+    #                 Memory.Write(Addresses.CurrentMusicData, currentLevelSongStartOffset);
+    #                 if (currentLevelSongTimestamp < currentLevelSongStartOffset || currentLevelSongStartOffset + 60 > currentLevelSongStartOffset + currentLevelSongLength)
+    #                 {
+    #                     Memory.Write(Addresses.CurrentMusicData + 4, currentLevelSongStartOffset);
+    #                 }
+    #                 Memory.Write(Addresses.CurrentMusicData + 8, currentLevelSongStartOffset + currentLevelSongLength);
+    #                 Memory.Write(Addresses.CurrentMusicData + 12, currentLevelSongChannel);
+    #                 Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)currentLevelSongChannel);
+    #             }
+    #         }
 
     def handleEloraDoorChanges(self, ctx, eloraDoorReads):
         currentLevel = eloraDoorReads[0]

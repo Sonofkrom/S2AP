@@ -262,6 +262,11 @@ class RAM:
     WTDoorGemBit = 7
     WTWarpAddress = 0x6470a
 
+    MainLevelMusicArray = 0x60140
+    FullMusicArray = 0x64de4
+    CurrentMusicData = 0x68320
+    CurrentMusicStatus = 0x682f4
+
     lastReceivedArchipelagoID = 0x1c0
     tempLastReceivedArchipelagoID = 0x1c4
 

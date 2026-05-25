@@ -263,6 +263,11 @@ namespace S2AP
         public const int WTDoorGemBit = 7;
         public const uint WTWarpAddress = 0x6470a;
 
+        public const uint MainLevelMusicArray = 0x60140;
+        public const uint FullMusicArray = 0x64de4;
+        public const uint CurrentMusicData = 0x68320;
+        public const uint CurrentMusicStatus = 0x682f4;
+
         // ROM patching
         public const uint RomDialogueOrbCount = 0x3ec0c;
         public static readonly byte[] OrbCountCode = [0x2c, 0x70, 0x22, 0xac];
