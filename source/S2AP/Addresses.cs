@@ -257,6 +257,7 @@ namespace S2AP
         public const uint ControllerReadLeftHalf = 0x122fc;
         public const uint ControllerReadRightHalf = 0x12304;
 
+        public const uint APDoorAddress = 0x64702;
         public const uint WTWallOrbAddress = 0x69fe5;
         public const int WTWallOrbBit = 0;
         public const uint WTDoorGemAddress = 0x6af25;

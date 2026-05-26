@@ -65,16 +65,16 @@ def get_level_rules(logic: Logic):
                 "Summer Forest: Hunter's Challenge": None,
                 "Summer Forest: On a secret ledge": lambda state: logic.can_access_sf_secret_ledge(state),
                 "Summer Forest: Atop a ladder": lambda state: logic.can_access_sf_ladder(state),
-                "Summer Forest: Behind the door": lambda state: logic.can_access_summer_second_half(state)
+                "Summer Forest: Behind the door": lambda state: logic.can_access_summer_second_half(state, False)
             },
             {
                 "Summer Forest: Moneybags Unlock: Swim": None,
-                "Summer Forest: Moneybags Unlock: Wall by Aquaria Towers": lambda state: logic.can_access_summer_second_half(state)
+                "Summer Forest: Moneybags Unlock: Wall by Aquaria Towers": lambda state: logic.can_access_summer_second_half(state, False)
             },
             {
                 "Summer Forest: First Life Bottle Near Glimmer": None,
                 "Summer Forest: Second Life Bottle Near Glimmer": None,
-                "Summer Forest: Life Bottle Near Sunny Beach": lambda state: logic.can_access_summer_second_half(state)
+                "Summer Forest: Life Bottle Near Sunny Beach": lambda state: logic.can_access_summer_second_half(state, False)
             },
             {},
             None,
@@ -96,7 +96,7 @@ def get_level_rules(logic: Logic):
                     GemRuleRestriction(
                         [1, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 52, 53, 54, 68, 69, 74, 77, 78, 79, 80, 87, 88, 89, 90, 91, 92, 93],
                         "access to the second half of Summer Forest",
-                        lambda state: logic.can_access_summer_second_half(state),
+                        lambda state: logic.can_access_summer_second_half(state, False),
                         170
                     ),
                     GemRuleRestriction(
@@ -383,15 +383,15 @@ def get_level_rules(logic: Logic):
             None,
             {
                 "Autumn Plains: The end of the wall": lambda state: logic.can_access_autumn_wall(state),
-                "Autumn Plains: Long glide!": lambda state: logic.can_pass_autumn_door(state)
+                "Autumn Plains: Long glide!": lambda state: logic.can_pass_autumn_door(state, False)
             },
             {
                 "Autumn Plains: Moneybags Unlock: Zephyr Portal": None,
                 "Autumn Plains: Moneybags Unlock: Climb": None,
-                "Autumn Plains: Moneybags Unlock: Shady Oasis Portal": lambda state: logic.can_pass_autumn_door(state),
-                "Autumn Plains: Moneybags Unlock: Icy Speedway Portal": lambda state: logic.can_pass_autumn_door(state)
+                "Autumn Plains: Moneybags Unlock: Shady Oasis Portal": lambda state: logic.can_pass_autumn_door(state, False),
+                "Autumn Plains: Moneybags Unlock: Icy Speedway Portal": lambda state: logic.can_pass_autumn_door(state, False)
             },
-            {"Autumn Plains: Life Bottle": lambda state: logic.can_access_autumn_second_half(state)},
+            {"Autumn Plains: Life Bottle": lambda state: logic.can_access_autumn_second_half(state, False)},
             {},
             None,
             GemRules(
@@ -418,13 +418,13 @@ def get_level_rules(logic: Logic):
                     GemRuleRestriction(
                         [17, 18, 19, 20, 21, 35, 36, 37, 46, 47, 93, 94],
                         "access beyond the ladder",
-                        lambda state: logic.can_access_autumn_second_half(state),
+                        lambda state: logic.can_access_autumn_second_half(state, False),
                         51
                     ),
                     GemRuleRestriction(
                         [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 99, 100, 101, 122],
                         "access to beyond the Professor's door",
-                        lambda state: logic.can_pass_autumn_door(state),
+                        lambda state: logic.can_pass_autumn_door(state, False),
                         202
                     ),
                     GemRuleRestriction(
@@ -741,7 +741,7 @@ def get_level_rules(logic: Logic):
             lambda state: logic.can_enter_winter(state),
             None,
             {
-                "Winter Tundra: On the tall wall": lambda state: logic.can_access_winter_second_half(state),
+                "Winter Tundra: On the tall wall": lambda state: logic.can_access_winter_second_half(state, False),
                 "Winter Tundra: Top of the waterfall": lambda state: logic.can_access_winter_waterfall(state),
                 "Winter Tundra: Smash the rock": lambda state: logic.can_headbash(state)
             },
@@ -770,7 +770,7 @@ def get_level_rules(logic: Logic):
                     GemRuleRestriction(
                         [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 68, 69, 70, 71, 72, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 92, 93, 94, 95, 103, 104, 105, 106],
                         "headbash",
-                        lambda state: logic.can_access_winter_second_half(state),
+                        lambda state: logic.can_access_winter_second_half(state, False),
                         208
                     ),
                     GemRuleRestriction(

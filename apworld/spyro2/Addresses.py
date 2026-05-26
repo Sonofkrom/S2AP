@@ -262,6 +262,9 @@ class RAM:
     WTDoorGemBit = 7
     WTWarpAddress = 0x6470a
 
+    # Professor's Door in Autumn Plains
+    ProfessorDoorAddress = 0x64702
+
     lastReceivedArchipelagoID = 0x1c0
     tempLastReceivedArchipelagoID = 0x1c4
 
