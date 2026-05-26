@@ -1506,7 +1506,7 @@ public partial class App : Application
                 }
                 Memory.Write(Addresses.CurrentMusicData + 8, currentLevelSongStartOffset + currentLevelSongLength);
                 Memory.Write(Addresses.CurrentMusicData + 12, currentLevelSongChannel);
-                Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)currentLevelSongChannel);
+                Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)1);
             }
         }
         if (

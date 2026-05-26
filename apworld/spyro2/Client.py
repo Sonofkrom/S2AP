@@ -638,6 +638,9 @@ class Spyro2Client(BizHawkClient):
                 "animationLength": (RAM.PlayerAnimationLength, 4, "MainRAM"),
                 "spyroState": (RAM.SpyroStateAddress, 1, "MainRAM"),
                 "spyroVelocityFlag": (RAM.PlayerVelocityStatus, 1, "MainRAM"),
+                "mainLevelSongs": (RAM.MainLevelMusicArray, 29, "MainRAM"),
+                "fullMusicArray": (RAM.FullMusicArray, 8 * 39, "MainRAM"),
+                "currentMusicData": (RAM.CurrentMusicData, 16, "MainRAM"),
             }
 
             readTuples = [Value for Value in readsDict.values()]
@@ -723,6 +726,9 @@ class Spyro2Client(BizHawkClient):
             animationLength = readValues["animationLength"]
             spyroState = readValues["spyroState"]
             spyroVelocityFlag = readValues["spyroVelocityFlag"]
+            mainLevelSongs = readValues["mainLevelSongs"]
+            fullMusicArray = readValues["fullMusicArray"]
+            currentMusicData = readValues["currentMusicData"]
 
             # Write tables
             itemsWrites = []
@@ -979,7 +985,10 @@ class Spyro2Client(BizHawkClient):
 
                 # ======== Musicsanity Handling ========
                 musicChangeReads = [
-
+                    currentLevel,
+                    mainLevelSongs,
+                    fullMusicArray,
+                    currentMusicData
                 ]
                 musicChangeWrites = self.handleMusicChanges(ctx, musicChangeReads)
                 if len(musicChangeWrites) > 0:
@@ -1588,46 +1597,35 @@ class Spyro2Client(BizHawkClient):
         return colorChangeWrites
 
     def handleMusicChanges(self, ctx, musicChangeReads):
-        songs = musicChangeReads[0]
-
-        music_changes = ctx.slot_data["options"]["main_level_music_array_changes"]
-        for levelID in music_changes.keys():
-            pass
+        current_level = musicChangeReads[0]
+        main_level_songs = musicChangeReads[1].to_bytes(29, "little")
+        full_music_array = musicChangeReads[2].to_bytes(8 * 39, "little")
+        current_music_data = musicChangeReads[3].to_bytes(16, "little")
 
         musicChangeWrites = []
 
-        #  bool musicValuesChanged = false;
-    #         if (mainLevelMusicChanges != null)
-    #         {
-    #             foreach (int levelID in mainLevelMusicChanges.Keys)
-    #             {
-    #                 byte song = Memory.ReadByte(Addresses.MainLevelMusicArray + (uint)levelID);
-    #                 if (song != (byte)mainLevelMusicChanges[levelID])
-    #                 {
-    #                     Memory.WriteByte(Addresses.MainLevelMusicArray + (uint)levelID, (byte)mainLevelMusicChanges[levelID]);
-    #                     musicValuesChanged = true;
-    #                 }
-    #             }
-    #         }
-    #         if (musicValuesChanged)
-    #         {
-    #             byte currentLevel = Memory.ReadByte(Addresses.CurrentLevelAddress);
-    #             if (mainLevelMusicChanges.ContainsKey((int)currentLevel))
-    #             {
-    #                 uint currentLevelSongStartOffset = 0x15f90 + Memory.ReadUInt(Addresses.FullMusicArray + (uint)(8 * mainLevelMusicChanges[(int)currentLevel]));
-    #                 uint currentLevelSongTimestamp = Memory.ReadUInt(Addresses.CurrentMusicData + 4);
-    #                 ushort currentLevelSongLength = Memory.ReadUShort(Addresses.FullMusicArray + (uint)(4 + 8 * mainLevelMusicChanges[(int)currentLevel]));
-    #                 short currentLevelSongChannel = Memory.ReadShort(Addresses.FullMusicArray + (uint)(6 + 8 * mainLevelMusicChanges[(int)currentLevel]));
-    #                 Memory.Write(Addresses.CurrentMusicData, currentLevelSongStartOffset);
-    #                 if (currentLevelSongTimestamp < currentLevelSongStartOffset || currentLevelSongStartOffset + 60 > currentLevelSongStartOffset + currentLevelSongLength)
-    #                 {
-    #                     Memory.Write(Addresses.CurrentMusicData + 4, currentLevelSongStartOffset);
-    #                 }
-    #                 Memory.Write(Addresses.CurrentMusicData + 8, currentLevelSongStartOffset + currentLevelSongLength);
-    #                 Memory.Write(Addresses.CurrentMusicData + 12, currentLevelSongChannel);
-    #                 Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)currentLevelSongChannel);
-    #             }
-    #         }
+        music_changes = ctx.slot_data["options"]["main_level_music_array_changes"]
+        music_values_changed = False
+        for levelID in music_changes.keys():
+            song = int.from_bytes([main_level_songs[int(levelID)]], "little")
+            if song != music_changes[levelID]:
+                musicChangeWrites += [(RAM.MainLevelMusicArray + int(levelID), music_changes[levelID].to_bytes(1, "little"), "MainRAM")]
+                music_values_changed = True
+        if music_values_changed:
+            if str(current_level) in music_changes.keys():
+                new_song_id = int(music_changes[str(current_level)])
+                current_level_song_start_offset = 0x15f90 + int.from_bytes(full_music_array[8 * new_song_id:8 * new_song_id + 4], "little", signed=False)
+                current_level_song_timestamp = int.from_bytes(current_music_data[4:8], "little", signed=False)
+                current_level_song_length = int.from_bytes(full_music_array[4 + 8 * new_song_id:6 + 8 * new_song_id], "little", signed=False)
+                current_level_song_channel = int.from_bytes(full_music_array[6 + 8 * new_song_id: 8 + 8 * new_song_id], "little", signed=False)
+                musicChangeWrites += [(RAM.CurrentMusicData, current_level_song_start_offset.to_bytes(4, "little"), "MainRAM")]
+                if current_level_song_timestamp < current_level_song_start_offset or current_level_song_start_offset + 60 > current_level_song_start_offset + current_level_song_length:
+                    musicChangeWrites += [(RAM.CurrentMusicData + 4, current_level_song_start_offset.to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicData + 8, (current_level_song_start_offset + current_level_song_length).to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicData + 12, current_level_song_channel.to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicStatus, (1).to_bytes(1, "little"), "MainRAM")]
+
+        return musicChangeWrites
 
     def handleEloraDoorChanges(self, ctx, eloraDoorReads):
         currentLevel = eloraDoorReads[0]
