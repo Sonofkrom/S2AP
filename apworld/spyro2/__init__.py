@@ -14,7 +14,8 @@ from .Items import (Spyro2Item, Spyro2ItemCategory, item_dictionary, key_item_na
 from .Locations import (Spyro2Location, Spyro2LocationCategory, location_tables,
     location_dictionary, location_name_groups)
 from .Options import Spyro2Option, GoalOptions, GemsanityOptions, GemsanityLocationOptions, MoneybagsOptions, \
-    RandomizeGemColorOptions, LevelLockOptions, TrickDifficultyOptions, spyro_options_groups, AbilityOptions, GemsanityRewardOptions
+    RandomizeGemColorOptions, LevelLockOptions, TrickDifficultyOptions, spyro_options_groups, AbilityOptions, \
+    GemsanityRewardOptions, MusicsanityOptions
 from .Logic import Logic, BaseLogic, EasyLogic, MediumLogic, CustomLogic
 from .Rules import get_level_rules
 from .Client import Spyro2Client
@@ -58,7 +59,8 @@ class Spyro2World(World):
     data_version = 0
     base_id = 1230000
     enabled_location_categories: Set[Spyro2LocationCategory]
-    required_client_version = (0, 5, 0)
+    # Effectively, minimum version of AP required.
+    required_client_version = (0, 6, 1)
     # TODO: Remember to update this!
     ap_world_version = "2.0.1"
     item_name_to_id = Spyro2Item.get_name_to_id()
@@ -681,6 +683,45 @@ class Spyro2World(World):
                 [self.random.randint(0, 16777216), self.random.randint(0, 16777216)],
             ]
 
+        main_level_music_changes = {}
+        music_array_changes = {}
+        if self.options.musicsanity.value != MusicsanityOptions.OFF:
+            homeworld_music = {0: 0}
+            if self.options.streamer_music.value:
+                homeworld_music[9] = 0
+                homeworld_music[21] = 0
+            else:
+                homeworld_music[9] = 11
+                homeworld_music[21] = 29
+            boss_music = {8: 10, 20: 28, 28: 37}
+            level_music = {1: 1, 2: 2, 3: 4, 4: 6, 5: 7, 6: 8, 7: 9, 10: 12, 11: 16, 12: 18, 13: 20, 14: 21, 15: 22,
+                           16: 23, 17: 24, 18: 2, 19: 27, 22: 30, 23: 31, 24: 33, 25: 34, 26: 35, 27: 36}
+            # minigame_music = {3: 3, 5: 5, 13: 13, 14: 14, 15: 15, 17: 17, 19: 19, 25: 25, 26: 26, 32: 32}
+            if self.options.musicsanity.value in [MusicsanityOptions.LIKE_WITH_LIKE]:
+                homeworld_values = [x for x in homeworld_music.values()]
+                boss_values = [x for x in boss_music.values()]
+                level_values = [x for x in level_music.values()]
+                self.random.shuffle(homeworld_values)
+                self.random.shuffle(boss_values)
+                self.random.shuffle(level_values)
+                for key in homeworld_music.keys():
+                    main_level_music_changes[key] = homeworld_values.pop(0)
+                for key in boss_music.keys():
+                    main_level_music_changes[key] = boss_values.pop(0)
+                for key in level_music.keys():
+                    main_level_music_changes[key] = level_values.pop(0)
+            else:
+                all_music = homeworld_music
+                all_music.update(boss_music)
+                all_music.update(level_music)
+                all_music_values = [x for x in all_music.values()]
+                self.random.shuffle(all_music_values)
+                for key in all_music.keys():
+                    main_level_music_changes[key] = all_music_values.pop(0)
+        elif self.options.streamer_music.value:
+            main_level_music_changes[9] = 0
+            main_level_music_changes[21] = 0
+
         slot_data = {
             "options": {
                 "goal": self.options.goal.value,
@@ -746,6 +787,10 @@ class Spyro2World(World):
                 "gold_gem_color": colors[3][1],
                 "pink_gem_shadow_color": colors[4][0],
                 "pink_gem_color": colors[4][1],
+                "musicsanity": self.options.musicsanity.value,
+                "streamer_music": self.options.streamer_music.value,
+                "main_level_music_array_changes": main_level_music_changes,
+                "music_array_changes": music_array_changes
             },
             "gemsanity_ids": gemsanity_locations,
             "level_orb_requirements": self.level_orb_requirements,
