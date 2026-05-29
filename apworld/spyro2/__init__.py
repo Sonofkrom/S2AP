@@ -43,7 +43,61 @@ class Spyro2Web(WebWorld):
     )
     game_info_languages = ["en"]
     tutorials = [setup_en]
-
+    options_presets = {
+        "Short Game": {
+            "goal": "ripto",
+            "enable_open_world": True,
+            "start_with_abilities": True,
+            "open_world_warp_unlocks": True,
+            "ripto_door_orbs": 30, #This number is a shot in the dark for what a brisk game would be
+        },
+        "Completionist": {
+            "goal": "100_percent",
+            "enable_gem_checks": True,
+            "enable_skillpoint_checks": True,
+            "enable_life_bottle_checks": True,
+            "": "",
+        },
+        "Very Easy Mode": {
+            "goal": "ripto",
+            "enable_open_world": True,
+            "start_with_abilities": True,
+            "open_world_warp_unlocks": True,
+            "permanent_fireball_ability": "start_with",
+            "enable_filler_color_change": True,
+            "colossus_starting_goals": 2,
+            "idol_easy_fish": True,
+            "hurricos_easy_lightning_orbs": True,
+            "breeze_required_gears": 25,
+            "scorch_bombo_settings": "attackless_first_only",
+            "fracture_easy_earthshapers": True,
+            "magma_spyro_starting_popcorn": 6,
+            "easy_gulp": True,
+        },
+        "Hard Mode": {
+            "goal": "epilogue",
+            "death_link": True,
+            "enable_skillpoint_checks": True,
+            "ripto_door_orbs": 55,
+            "double_jump_ability": "off",
+            "permanent_fireball_ability": "off",
+            "enable_filler_extra_lives": False,
+            "trap_filler_percent": 100,
+            "enable_trap_damage_sparx": True,
+            "enable_trap_sparxless": True,
+            "enable_trap_invisibility": True,
+            "enable_progressive_sparx_health": "sparxless",
+            "magma_hunter_starting_popcorn": 2, #I remember this being hard already so 2/9 is pushing it
+        },
+        "Speedrunner Strategies Required": {
+            "trick_difficulty": "medium_tricks",
+        },
+        "Open World with Level Locks": {
+            "enable_open_world": True,
+            "open_world_warp_unlocks": True,
+            "level_lock_options": "keys",
+        },
+    }
 
 class Spyro2World(World):
     """
