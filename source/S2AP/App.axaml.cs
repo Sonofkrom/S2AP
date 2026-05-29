@@ -976,31 +976,32 @@ public partial class App : Application
                 int animationLength = Memory.ReadInt(Addresses.PlayerAnimationLength);
                 byte spyroState = Memory.ReadByte(Addresses.SpyroStateAddress);
                 byte spyroVelocityFlag = Memory.ReadByte(Addresses.PlayerVelocityStatus);
+                int sharkDeathLink = Memory.ReadInt(Addresses.AquariaSharkDeathlink);
                 LevelInGameIDs[] deathLinkLevels = [
                     LevelInGameIDs.SummerForest,
-                LevelInGameIDs.Glimmer,
-                LevelInGameIDs.Colossus,
-                LevelInGameIDs.IdolSprings,
-                LevelInGameIDs.Hurricos,
-                LevelInGameIDs.SunnyBeach,
-                LevelInGameIDs.AquariaTowers,
-                LevelInGameIDs.CrushsDungeon,
-                LevelInGameIDs.AutumnPlains,
-                LevelInGameIDs.BreezeHarbor,
-                LevelInGameIDs.SkelosBadlands,
-                LevelInGameIDs.CrystalGlacier,
-                LevelInGameIDs.Zephyr,
-                LevelInGameIDs.Scorch,
-                LevelInGameIDs.FractureHills,
-                LevelInGameIDs.MagmaCone,
-                LevelInGameIDs.ShadyOasis,
-                LevelInGameIDs.GulpsOverlook,
-                LevelInGameIDs.WinterTundra,
-                LevelInGameIDs.MysticMarsh,
-                LevelInGameIDs.CloudTemples,
-                LevelInGameIDs.RoboticaFarms,
-                LevelInGameIDs.Metropolis,
-                LevelInGameIDs.RiptosArena
+                    LevelInGameIDs.Glimmer,
+                    LevelInGameIDs.Colossus,
+                    LevelInGameIDs.IdolSprings,
+                    LevelInGameIDs.Hurricos,
+                    LevelInGameIDs.SunnyBeach,
+                    LevelInGameIDs.AquariaTowers,
+                    LevelInGameIDs.CrushsDungeon,
+                    LevelInGameIDs.AutumnPlains,
+                    LevelInGameIDs.BreezeHarbor,
+                    LevelInGameIDs.SkelosBadlands,
+                    LevelInGameIDs.CrystalGlacier,
+                    LevelInGameIDs.Zephyr,
+                    LevelInGameIDs.Scorch,
+                    LevelInGameIDs.FractureHills,
+                    LevelInGameIDs.MagmaCone,
+                    LevelInGameIDs.ShadyOasis,
+                    LevelInGameIDs.GulpsOverlook,
+                    LevelInGameIDs.WinterTundra,
+                    LevelInGameIDs.MysticMarsh,
+                    LevelInGameIDs.CloudTemples,
+                    LevelInGameIDs.RoboticaFarms,
+                    LevelInGameIDs.Metropolis,
+                    LevelInGameIDs.RiptosArena
                 ];
 
                 if (
@@ -1011,6 +1012,7 @@ public partial class App : Application
                     deathLinkLevels.Contains(currentLevel) &&
                     gameStatus != GameStatus.Cutscene &&
                     gameStatus != GameStatus.Loading &&
+                    gameStatus != GameStatus.LoadingWorld &&
                     gameStatus != GameStatus.TitleScreen &&
                     (
                         health > 128 ||
@@ -1018,7 +1020,8 @@ public partial class App : Application
                         (spyroState == (byte)SpyroStates.Flop && spyroVelocityFlag == 1 && 0x3b < animationLength) ||
                         spyroState == (byte)SpyroStates.DeathBurn ||
                         spyroState == (byte)SpyroStates.DeathDrowning && animationLength >= 116 ||
-                        spyroState == (byte)SpyroStates.DeathSquash
+                        spyroState == (byte)SpyroStates.DeathSquash ||
+                        currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0
                     )
                 )
                 {
@@ -1048,6 +1051,11 @@ public partial class App : Application
                     {
                         deathlinkCause = "Squashed";
                     }
+                    else if (currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0)
+                    {
+                        deathlinkCause = "Eaten by sharks";
+                        Memory.Write(Addresses.AquariaSharkDeathlink, 0);
+                    }
                     Log.Logger.Information($"Sending DeathLink. Cause: {deathlinkCause}");
                     if (deathlinkCause == "Unknown")
                     {
@@ -1066,7 +1074,8 @@ public partial class App : Application
                         (spyroState == (byte)SpyroStates.Flop && spyroVelocityFlag == 1 && 0x3b < animationLength) ||
                         spyroState == (byte)SpyroStates.DeathBurn ||
                         spyroState == (byte)SpyroStates.DeathDrowning && animationLength >= 116 ||
-                        spyroState == (byte)SpyroStates.DeathSquash
+                        spyroState == (byte)SpyroStates.DeathSquash ||
+                        currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0
                     )
                 )
                 {
@@ -1089,6 +1098,13 @@ public partial class App : Application
                     // Probably easier to just patch.
                     //Memory.Write(Addresses.localGemLoadFixAddress, 0);
                     //Memory.Write(Addresses.globalGemLoadFixAddress, 0);
+
+                    // Disable repeated 400/400 popup by always skipping the code instead of when gem count is not 400.
+                    uint gemPopupCode = Memory.ReadUInt(Addresses.gemPopupAddress);
+                    if (gemPopupCode == 0x14620012)                             // bne v1,v0,0x80039780
+                    {
+                        Memory.Write(Addresses.gemPopupAddress, 0x0800e5e0);    // j 0x80039780
+                    }
                 }
                 if (currentLevel == LevelInGameIDs.Colossus)
                 {
@@ -1124,6 +1140,21 @@ public partial class App : Application
                             Memory.Write(thiefZCoordinate, 0);
                         }
                     }
+                }
+                else if (currentLevel == LevelInGameIDs.AquariaTowers)
+                {
+                    // Take an empty block of space and use it for DeathLink handling code for sharks.
+                    // This block sets Addresses.AquariaSharkDeathlink to 1 if the sharks kill Spyro, then calls normal OnDeath code.
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode, 0x24020001);      // li v0, 0x1
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 4, 0x3c018008);  // lui at, 0x8008
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 8, 0xac224788);  // sw v0, 0x4788(at)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 12, 0x0);        // nop
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 16, 0x0c00cb9d); // jal OnDeath (0x80032e74)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 20, 0x0);        // nop
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 24, 0x0801e23c); // j 0x800788f0 (AquariaSharkDeathJAL + 8)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 28, 0x0);        // nop
+
+                    Memory.Write(Addresses.AquariaSharkDeathJAL, 0x080211e4);           // j 0x80084790 (AquariaSharkDeathlinkCode)
                 }
                 else if (currentLevel == LevelInGameIDs.BreezeHarbor)
                 {

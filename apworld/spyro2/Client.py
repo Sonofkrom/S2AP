@@ -589,6 +589,7 @@ class Spyro2Client(BizHawkClient):
                 "globalGemRespawnFix": (RAM.globalGemRespawnFixAddress, 4, "MainRAM"),
                 "localGemRespawnFix": (RAM.localGemRespawnFixAddress, 4, "MainRAM"),
                 "playBeep": (RAM.playBeepAddress, 4, "MainRAM"),
+                "gemPopup": (RAM.gemPopupAddress, 4, "MainRAM"),
                 "doubleJumpLine1": (RAM.DoubleJumpAddress1, 4, "MainRAM"),
                 "doubleJumpLine2": (RAM.DoubleJumpAddress2, 4, "MainRAM"),
                 "permanentFireball": (RAM.PermanentFireballAddress, 1, "MainRAM"),
@@ -641,6 +642,8 @@ class Spyro2Client(BizHawkClient):
                 "mainLevelSongs": (RAM.MainLevelMusicArray, 29, "MainRAM"),
                 "fullMusicArray": (RAM.FullMusicArray, 8 * 39, "MainRAM"),
                 "currentMusicData": (RAM.CurrentMusicData, 16, "MainRAM"),
+                "aquariaSharkDeathlinkCode": (RAM.AquariaSharkDeathlinkCode, 4, "MainRAM"),
+                "sharkDeathlinkValue": (RAM.AquariaSharkDeathlink, 4, "MainRAM"),
             }
 
             readTuples = [Value for Value in readsDict.values()]
@@ -677,6 +680,7 @@ class Spyro2Client(BizHawkClient):
             globalGemRespawnFix = readValues["globalGemRespawnFix"]
             localGemRespawnFix = readValues["localGemRespawnFix"]
             playBeep = readValues["playBeep"]
+            gemPopup = readValues["gemPopup"]
             doubleJumpLine1 = readValues["doubleJumpLine1"]
             doubleJumpLine2 = readValues["doubleJumpLine2"]
             permanentFireball = readValues["permanentFireball"]
@@ -729,6 +733,8 @@ class Spyro2Client(BizHawkClient):
             mainLevelSongs = readValues["mainLevelSongs"]
             fullMusicArray = readValues["fullMusicArray"]
             currentMusicData = readValues["currentMusicData"]
+            aquariaSharkDeathlinkCode = readValues["aquariaSharkDeathlinkCode"]
+            sharkDeathlinkValue = readValues["sharkDeathlinkValue"]
 
             # Write tables
             itemsWrites = []
@@ -922,7 +928,7 @@ class Spyro2Client(BizHawkClient):
             if not boolIsFirstBoot and gameStatus not in [GameStatus.Paused, GameStatus.LoadingWorld, GameStatus.Cutscene]:
                 # ======== Gemsanity Code Handling ========
                 if ctx.slot_data["options"]["enable_gemsanity"]:
-                    gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep]
+                    gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep, gemPopup]
                     gemsanityWrites = self.handleGemsanity(gemsanity_reads)
                     if len(gemsanityWrites) > 0:
                         await bizhawk.write(ctx.bizhawk_ctx, gemsanityWrites)
@@ -1003,6 +1009,15 @@ class Spyro2Client(BizHawkClient):
                     if len(eloraDoorWrites) > 0:
                         await bizhawk.write(ctx.bizhawk_ctx, eloraDoorWrites)
 
+                # ======== Aquaria Shark Deathlink Handling ========
+                sharkDeathlinkReads = [
+                    currentLevel,
+                    aquariaSharkDeathlinkCode
+                ]
+                sharkDeathlinkWrites = self.handleAquariaSharkDeathlink(sharkDeathlinkReads)
+                if len(sharkDeathlinkWrites) > 0:
+                    await bizhawk.write(ctx.bizhawk_ctx, sharkDeathlinkWrites)
+
                 # ======== Open World Handling ========
                 openWorldReads = [crushGuidebookUnlock, gulpGuidebookUnlock, autumnGuidebookUnlock, winterGuidebookUnlock]
                 openWorldWrites = self.handleOpenWorldChanges(ctx, openWorldReads)
@@ -1047,7 +1062,8 @@ class Spyro2Client(BizHawkClient):
                     zPos,
                     animationLength,
                     spyroVelocityFlag,
-                    spyroState
+                    spyroState,
+                    sharkDeathlinkValue
                 ]
                 await self.handle_death_link(ctx, DL_Reads)
 
@@ -1300,6 +1316,7 @@ class Spyro2Client(BizHawkClient):
         globalGemRespawnFix = gemsanity_reads[2]
         localGemRespawnFix = gemsanity_reads[3]
         playBeep = gemsanity_reads[4]
+        gemPopup = gemsanity_reads[5]
         gemsanity_writes = []
 
         # Disable updating local and global gem counts on collecting a gem, loading into a level, and respawning.
@@ -1313,6 +1330,8 @@ class Spyro2Client(BizHawkClient):
             gemsanity_writes += [(RAM.localGemRespawnFixAddress, (0).to_bytes(4, "little"), "MainRAM")]
         if playBeep != 0:
             gemsanity_writes += [(RAM.playBeepAddress, (0).to_bytes(4, "little"), "MainRAM")]
+        if gemPopup == 0x14620012:   # bne v1,v0,0x80039780
+            gemsanity_writes += [(RAM.gemPopupAddress, (0x0800e5e0).to_bytes(4, "little"), "MainRAM")]  # j 0x80039780
 
         return gemsanity_writes
 
@@ -1657,6 +1676,30 @@ class Spyro2Client(BizHawkClient):
         # }
         return eloraDoorWrites
 
+    def handleAquariaSharkDeathlink(self, aquariaSharkWrites):
+        currentLevel = aquariaSharkWrites[0]
+        deathlinkWriteLine = aquariaSharkWrites[1]
+
+        sharkDeathlinkWrites = []
+
+        if currentLevel == LevelInGameIDs.AquariaTowers and deathlinkWriteLine != 0x24020001:
+            # Take an empty block of space and use it for DeathLink handling code for sharks.
+            # This block sets Addresses.AquariaSharkDeathlink to 1 if the sharks kill Spyro, then calls normal OnDeath code.
+            sharkDeathlinkWrites += [
+                (RAM.AquariaSharkDeathlinkCode, 0x24020001.to_bytes(4, "little"), "MainRAM"),      # li v0, 0x1
+                (RAM.AquariaSharkDeathlinkCode + 4, 0x3c018008.to_bytes(4, "little"), "MainRAM"),  # lui at, 0x8008
+                (RAM.AquariaSharkDeathlinkCode + 8, 0xac224788.to_bytes(4, "little"), "MainRAM"),  # sw v0, 0x4788(at)
+                (RAM.AquariaSharkDeathlinkCode + 12, 0x0.to_bytes(4, "little"), "MainRAM"),        # nop
+                (RAM.AquariaSharkDeathlinkCode + 16, 0x0c00cb9d.to_bytes(4, "little"), "MainRAM"), # jal OnDeath (0x80032e74)
+                (RAM.AquariaSharkDeathlinkCode + 20, 0x0.to_bytes(4, "little"), "MainRAM"),        # nop
+                (RAM.AquariaSharkDeathlinkCode + 24, 0x0801e23c.to_bytes(4, "little"), "MainRAM"), # j 0x800788f0 (AquariaSharkDeathJAL + 8)
+                (RAM.AquariaSharkDeathJAL + 28, 0x0.to_bytes(4, "little"), "MainRAM"),             # nop
+
+                (RAM.AquariaSharkDeathJAL, 0x080211e4.to_bytes(4, "little"), "MainRAM"),           # j 0x80084790 (AquariaSharkDeathlinkCode)
+            ]
+        return sharkDeathlinkWrites
+
+
     def handleOpenWorldChanges(self, ctx, openWorldReads):
         crushGuidebookUnlock = openWorldReads[0]
         gulpGuidebookUnlock = openWorldReads[1]
@@ -1924,6 +1967,7 @@ class Spyro2Client(BizHawkClient):
         animationLength = DL_Reads[4]
         velocityFlag = DL_Reads[5]
         spyroState = DL_Reads[6]
+        sharkDeathlinkValue = DL_Reads[7]
 
         DL_writes = []
         if self.deathlink == 1:
@@ -1932,7 +1976,7 @@ class Spyro2Client(BizHawkClient):
             if "DeathLink" in ctx.tags and ctx.last_death_link + 1 < time.time():
                 if not self.sending_death_link and \
                         currentLevel in deathLinkLevels and \
-                        gameState not in [GameStatus.Cutscene, GameStatus.Loading, GameStatus.TitleScreen]:
+                        gameState not in [GameStatus.Cutscene, GameStatus.Loading, GameStatus.LoadingWorld, GameStatus.TitleScreen]:
                     cause = None
                     if health > 128:
                         cause = "Damage"
@@ -1946,6 +1990,8 @@ class Spyro2Client(BizHawkClient):
                         cause = "Drowned"
                     elif spyroState == SpyroStates.DeathSquash:
                         cause = "Squashed"
+                    elif currentLevel == LevelInGameIDs.AquariaTowers and gameState != GameStatus.Paused and sharkDeathlinkValue != 0:
+                        cause = "Eaten by sharks"
                     if cause is not None:
                         await self.send_deathlink(ctx, cause)
                 # Player has respawned.
@@ -1954,7 +2000,8 @@ class Spyro2Client(BizHawkClient):
                             not (spyroState == SpyroStates.Flop and velocityFlag == 1 and 0x3b < animationLength) and \
                             spyroState != SpyroStates.DeathBurn and \
                             not (spyroState == SpyroStates.DeathDrowning and animationLength >= 116) and \
-                            spyroState != SpyroStates.DeathSquash:
+                            spyroState != SpyroStates.DeathSquash and \
+                            not (currentLevel == LevelInGameIDs.AquariaTowers and gameState != GameStatus.Paused and sharkDeathlinkValue != 0):
                         self.sending_death_link = False
             if self.pending_death_link:
                 if currentLevel not in deathLinkLevels:
@@ -1970,6 +2017,8 @@ class Spyro2Client(BizHawkClient):
 
     async def send_deathlink(self, ctx: "BizHawkClientContext", cause) -> None:
         self.sending_death_link = True
+        DL_writes = [(RAM.AquariaSharkDeathlink, 0x0.to_bytes(4, "little"), "MainRAM")]
+        await bizhawk.write(ctx.bizhawk_ctx, DL_writes)
         ctx.last_death_link = time.time()
         if cause == "Unknown":
             DeathText = ctx.player_names[ctx.slot] + " died in Spyro 2."

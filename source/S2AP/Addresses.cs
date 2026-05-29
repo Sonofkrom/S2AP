@@ -152,6 +152,7 @@ namespace S2AP
         public const uint localGemLoadFixAddress = 0x00076B98;
         public const uint globalGemLoadFixAddress = 0x00076BA0;
         public const uint playBeepAddress = 0x5429c;
+        public const uint gemPopupAddress = 0x39734;
 
         public const uint SummerPortalBlock = 0x000e2d34;
         public const uint AutumnPortalBlock = 0x000f5330;
@@ -249,6 +250,10 @@ namespace S2AP
         ];
         public static uint ShadyHeadbashCheck = 0x7d6c0;
         public static uint GulpDoubleDamage = 0x120c5e;
+
+        public static uint AquariaSharkDeathJAL = 0x788e8;
+        public static uint AquariaSharkDeathlink = 0x84788;
+        public static uint AquariaSharkDeathlinkCode = 0x84790;
 
         public const uint GuidebookText = 0x00010308;
 

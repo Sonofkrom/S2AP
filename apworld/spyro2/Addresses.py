@@ -155,6 +155,7 @@ class RAM:
     localGemLoadFixAddress = 0x00076B98
     globalGemLoadFixAddress = 0x00076BA0
     playBeepAddress = 0x5429c
+    gemPopupAddress = 0x39734
 
     # Address of portal surface flags.
     SummerPortalBlock = 0x000e2d34
@@ -269,6 +270,10 @@ class RAM:
 
     lastReceivedArchipelagoID = 0x1c0
     tempLastReceivedArchipelagoID = 0x1c4
+
+    AquariaSharkDeathJAL = 0x788e8
+    AquariaSharkDeathlink = 0x84788
+    AquariaSharkDeathlinkCode = 0x84790
 
 class ROM:
     RomDialogueOrbCount = 0x3ec0c
