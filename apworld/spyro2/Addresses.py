@@ -265,6 +265,10 @@ class RAM:
     lastReceivedArchipelagoID = 0x1c0
     tempLastReceivedArchipelagoID = 0x1c4
 
+    AquariaSharkDeathJAL = 0x788e8
+    AquariaSharkDeathlink = 0x84788
+    AquariaSharkDeathlinkCode = 0x84790
+
 class ROM:
     RomDialogueOrbCount = 0x3ec0c
     OrbCountCode = [0x2c, 0x70, 0x22, 0xac]
