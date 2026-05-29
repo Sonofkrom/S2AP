@@ -639,6 +639,9 @@ class Spyro2Client(BizHawkClient):
                 "animationLength": (RAM.PlayerAnimationLength, 4, "MainRAM"),
                 "spyroState": (RAM.SpyroStateAddress, 1, "MainRAM"),
                 "spyroVelocityFlag": (RAM.PlayerVelocityStatus, 1, "MainRAM"),
+                "mainLevelSongs": (RAM.MainLevelMusicArray, 29, "MainRAM"),
+                "fullMusicArray": (RAM.FullMusicArray, 8 * 39, "MainRAM"),
+                "currentMusicData": (RAM.CurrentMusicData, 16, "MainRAM"),
                 "aquariaSharkDeathlinkCode": (RAM.AquariaSharkDeathlinkCode, 4, "MainRAM"),
                 "sharkDeathlinkValue": (RAM.AquariaSharkDeathlink, 4, "MainRAM"),
             }
@@ -727,6 +730,9 @@ class Spyro2Client(BizHawkClient):
             animationLength = readValues["animationLength"]
             spyroState = readValues["spyroState"]
             spyroVelocityFlag = readValues["spyroVelocityFlag"]
+            mainLevelSongs = readValues["mainLevelSongs"]
+            fullMusicArray = readValues["fullMusicArray"]
+            currentMusicData = readValues["currentMusicData"]
             aquariaSharkDeathlinkCode = readValues["aquariaSharkDeathlinkCode"]
             sharkDeathlinkValue = readValues["sharkDeathlinkValue"]
 
@@ -982,6 +988,17 @@ class Spyro2Client(BizHawkClient):
                 colorChangeWrites = self.handleColorChanges(ctx, colorChangeReads)
                 if len(colorChangeWrites) > 0:
                     await bizhawk.write(ctx.bizhawk_ctx, colorChangeWrites)
+
+                # ======== Musicsanity Handling ========
+                musicChangeReads = [
+                    currentLevel,
+                    mainLevelSongs,
+                    fullMusicArray,
+                    currentMusicData
+                ]
+                musicChangeWrites = self.handleMusicChanges(ctx, musicChangeReads)
+                if len(musicChangeWrites) > 0:
+                    await bizhawk.write(ctx.bizhawk_ctx, musicChangeWrites)
 
                 # ======== Elora Text and Door Requirements ========
                 # Menuing out of Winter Tundra crashes the game on save file load,
@@ -1597,6 +1614,37 @@ class Spyro2Client(BizHawkClient):
             if portalTextBlue != 0:
                 colorChangeWrites += [(RAM.PortalTextBlue, (0).to_bytes(1, "little"), "MainRAM")]
         return colorChangeWrites
+
+    def handleMusicChanges(self, ctx, musicChangeReads):
+        current_level = musicChangeReads[0]
+        main_level_songs = musicChangeReads[1].to_bytes(29, "little")
+        full_music_array = musicChangeReads[2].to_bytes(8 * 39, "little")
+        current_music_data = musicChangeReads[3].to_bytes(16, "little")
+
+        musicChangeWrites = []
+
+        music_changes = ctx.slot_data["options"]["main_level_music_array_changes"]
+        music_values_changed = False
+        for levelID in music_changes.keys():
+            song = int.from_bytes([main_level_songs[int(levelID)]], "little")
+            if song != music_changes[levelID]:
+                musicChangeWrites += [(RAM.MainLevelMusicArray + int(levelID), music_changes[levelID].to_bytes(1, "little"), "MainRAM")]
+                music_values_changed = True
+        if music_values_changed:
+            if str(current_level) in music_changes.keys():
+                new_song_id = int(music_changes[str(current_level)])
+                current_level_song_start_offset = 0x15f90 + int.from_bytes(full_music_array[8 * new_song_id:8 * new_song_id + 4], "little", signed=False)
+                current_level_song_timestamp = int.from_bytes(current_music_data[4:8], "little", signed=False)
+                current_level_song_length = int.from_bytes(full_music_array[4 + 8 * new_song_id:6 + 8 * new_song_id], "little", signed=False)
+                current_level_song_channel = int.from_bytes(full_music_array[6 + 8 * new_song_id: 8 + 8 * new_song_id], "little", signed=False)
+                musicChangeWrites += [(RAM.CurrentMusicData, current_level_song_start_offset.to_bytes(4, "little"), "MainRAM")]
+                if current_level_song_timestamp < current_level_song_start_offset or current_level_song_start_offset + 60 > current_level_song_start_offset + current_level_song_length:
+                    musicChangeWrites += [(RAM.CurrentMusicData + 4, current_level_song_start_offset.to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicData + 8, (current_level_song_start_offset + current_level_song_length).to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicData + 12, current_level_song_channel.to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicStatus, (1).to_bytes(1, "little"), "MainRAM")]
+
+        return musicChangeWrites
 
     def handleEloraDoorChanges(self, ctx, eloraDoorReads):
         currentLevel = eloraDoorReads[0]

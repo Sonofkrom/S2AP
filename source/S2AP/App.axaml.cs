@@ -1461,6 +1461,7 @@ public partial class App : Application
                 }
             }
         }
+        // Cosmetics
         Memory.Write(Addresses.RedGemShadow, int.Parse(Client.Options?.GetValueOrDefault("red_gem_shadow_color", "0").ToString()));
         Memory.Write(Addresses.RedGemColor, int.Parse(Client.Options?.GetValueOrDefault("red_gem_color", "0").ToString()));
         Memory.Write(Addresses.GreenGemShadow, int.Parse(Client.Options?.GetValueOrDefault("green_gem_shadow_color", "0").ToString()));
@@ -1503,6 +1504,41 @@ public partial class App : Application
                 Memory.WriteByte(Addresses.PortalTextGreen, 64);
                 Memory.WriteByte(Addresses.PortalTextBlue, 0);
                 break;
+        }
+        bool musicValuesChanged = false;
+        Dictionary<int, int>? mainLevelMusicChanges = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, int>>(
+            Client.Options?.GetValueOrDefault("main_level_music_array_changes", new Dictionary<int, int>()).ToString()
+        );
+        if (mainLevelMusicChanges != null)
+        {
+            foreach (int levelID in mainLevelMusicChanges.Keys)
+            {
+                byte song = Memory.ReadByte(Addresses.MainLevelMusicArray + (uint)levelID);
+                if (song != (byte)mainLevelMusicChanges[levelID])
+                {
+                    Memory.WriteByte(Addresses.MainLevelMusicArray + (uint)levelID, (byte)mainLevelMusicChanges[levelID]);
+                    musicValuesChanged = true;
+                }
+            }
+        }
+        if (musicValuesChanged)
+        {
+            byte currentLevel = Memory.ReadByte(Addresses.CurrentLevelAddress);
+            if (mainLevelMusicChanges.ContainsKey((int)currentLevel))
+            {
+                uint currentLevelSongStartOffset = 0x15f90 + Memory.ReadUInt(Addresses.FullMusicArray + (uint)(8 * mainLevelMusicChanges[(int)currentLevel]));
+                uint currentLevelSongTimestamp = Memory.ReadUInt(Addresses.CurrentMusicData + 4);
+                ushort currentLevelSongLength = Memory.ReadUShort(Addresses.FullMusicArray + (uint)(4 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+                short currentLevelSongChannel = Memory.ReadShort(Addresses.FullMusicArray + (uint)(6 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+                Memory.Write(Addresses.CurrentMusicData, currentLevelSongStartOffset);
+                if (currentLevelSongTimestamp < currentLevelSongStartOffset || currentLevelSongStartOffset + 60 > currentLevelSongStartOffset + currentLevelSongLength)
+                {
+                    Memory.Write(Addresses.CurrentMusicData + 4, currentLevelSongStartOffset);
+                }
+                Memory.Write(Addresses.CurrentMusicData + 8, currentLevelSongStartOffset + currentLevelSongLength);
+                Memory.Write(Addresses.CurrentMusicData + 12, currentLevelSongChannel);
+                Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)1);
+            }
         }
         if (
             _cosmeticEffects.Count > 0 &&

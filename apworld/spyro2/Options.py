@@ -81,6 +81,13 @@ class RandomizeGemColorOptions:
     RANDOM = 2
     TRUE_RANDOM = 3
 
+class MusicsanityOptions:
+    OFF = 0
+    LIKE_WITH_LIKE_NO_MINIGAMES = 1
+    LIKE_WITH_LIKE = 2
+    FULL_NO_MINIGAMES = 3
+    FULL = 4
+
 
 class GoalOption(Choice):
     """Choose the completion goal.
@@ -555,6 +562,26 @@ class GemColor(Choice):
     option_random_choice = RandomizeGemColorOptions.RANDOM
     option_true_random = RandomizeGemColorOptions.TRUE_RANDOM
 
+class Musicsanity(Choice):
+    """Shuffles most of the music in game.
+    Off: No changes.
+    Like With Like: Music is shuffled within its type:
+        Homeworld, Normal Level, Boss.
+    Full: Music is shuffled regardless of type.
+    """
+    display_name = "Musicsanity"
+    default = MusicsanityOptions.OFF
+    option_off = MusicsanityOptions.OFF
+    option_like_with_like = MusicsanityOptions.LIKE_WITH_LIKE
+    option_full = MusicsanityOptions.FULL
+
+class StreamerMusic(Toggle):
+    """Streaming platforms sometimes mute VODs with the Autumn Plains
+    or Winter Tundrea homeworld music.
+    Replaces these with Summer Forest.
+    """
+    display_name = "Streamer-Friendly Music"
+
 @dataclass
 class Spyro2Option(PerGameCommonOptions):
     goal: GoalOption
@@ -613,6 +640,8 @@ class Spyro2Option(PerGameCommonOptions):
     easy_gulp: EasyGulp
     portal_gem_collection_color: PortalAndGemCollectionColor
     gem_color: GemColor
+    musicsanity: Musicsanity
+    streamer_music: StreamerMusic
 
 
 # Group logic/trick options together, especially for the local WebHost.
@@ -699,7 +728,9 @@ spyro_options_groups = [
         "Cosmetics",
         [
             PortalAndGemCollectionColor,
-            GemColor
+            GemColor,
+            Musicsanity,
+            StreamerMusic
         ],
         True
     ),
