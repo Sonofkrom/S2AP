@@ -943,6 +943,14 @@ public partial class App : Application
             }
             HandleMoneybagsUnlocks();
             HandleInnerWTWarpAccess();
+
+            // PhoenixAki addition: open professor's door if professor's option is enabled.
+            int doorOption = int.Parse(Client.Options?.GetValueOrDefault("open_professor_door", "0").ToString());
+            if (doorOption == 1)
+            {
+                Memory.Write(Addresses.APDoorAddress, (short)1);
+            }
+
             CheckGoalCondition();
             HandleSparxAbilities();
             byte lifeCount = Memory.ReadByte(Addresses.PlayerLives);
@@ -991,31 +999,32 @@ public partial class App : Application
                 int animationLength = Memory.ReadInt(Addresses.PlayerAnimationLength);
                 byte spyroState = Memory.ReadByte(Addresses.SpyroStateAddress);
                 byte spyroVelocityFlag = Memory.ReadByte(Addresses.PlayerVelocityStatus);
+                int sharkDeathLink = Memory.ReadInt(Addresses.AquariaSharkDeathlink);
                 LevelInGameIDs[] deathLinkLevels = [
                     LevelInGameIDs.SummerForest,
-                LevelInGameIDs.Glimmer,
-                LevelInGameIDs.Colossus,
-                LevelInGameIDs.IdolSprings,
-                LevelInGameIDs.Hurricos,
-                LevelInGameIDs.SunnyBeach,
-                LevelInGameIDs.AquariaTowers,
-                LevelInGameIDs.CrushsDungeon,
-                LevelInGameIDs.AutumnPlains,
-                LevelInGameIDs.BreezeHarbor,
-                LevelInGameIDs.SkelosBadlands,
-                LevelInGameIDs.CrystalGlacier,
-                LevelInGameIDs.Zephyr,
-                LevelInGameIDs.Scorch,
-                LevelInGameIDs.FractureHills,
-                LevelInGameIDs.MagmaCone,
-                LevelInGameIDs.ShadyOasis,
-                LevelInGameIDs.GulpsOverlook,
-                LevelInGameIDs.WinterTundra,
-                LevelInGameIDs.MysticMarsh,
-                LevelInGameIDs.CloudTemples,
-                LevelInGameIDs.RoboticaFarms,
-                LevelInGameIDs.Metropolis,
-                LevelInGameIDs.RiptosArena
+                    LevelInGameIDs.Glimmer,
+                    LevelInGameIDs.Colossus,
+                    LevelInGameIDs.IdolSprings,
+                    LevelInGameIDs.Hurricos,
+                    LevelInGameIDs.SunnyBeach,
+                    LevelInGameIDs.AquariaTowers,
+                    LevelInGameIDs.CrushsDungeon,
+                    LevelInGameIDs.AutumnPlains,
+                    LevelInGameIDs.BreezeHarbor,
+                    LevelInGameIDs.SkelosBadlands,
+                    LevelInGameIDs.CrystalGlacier,
+                    LevelInGameIDs.Zephyr,
+                    LevelInGameIDs.Scorch,
+                    LevelInGameIDs.FractureHills,
+                    LevelInGameIDs.MagmaCone,
+                    LevelInGameIDs.ShadyOasis,
+                    LevelInGameIDs.GulpsOverlook,
+                    LevelInGameIDs.WinterTundra,
+                    LevelInGameIDs.MysticMarsh,
+                    LevelInGameIDs.CloudTemples,
+                    LevelInGameIDs.RoboticaFarms,
+                    LevelInGameIDs.Metropolis,
+                    LevelInGameIDs.RiptosArena
                 ];
 
                 if (
@@ -1026,6 +1035,7 @@ public partial class App : Application
                     deathLinkLevels.Contains(currentLevel) &&
                     gameStatus != GameStatus.Cutscene &&
                     gameStatus != GameStatus.Loading &&
+                    gameStatus != GameStatus.LoadingWorld &&
                     gameStatus != GameStatus.TitleScreen &&
                     (
                         health > 128 ||
@@ -1033,7 +1043,8 @@ public partial class App : Application
                         (spyroState == (byte)SpyroStates.Flop && spyroVelocityFlag == 1 && 0x3b < animationLength) ||
                         spyroState == (byte)SpyroStates.DeathBurn ||
                         spyroState == (byte)SpyroStates.DeathDrowning && animationLength >= 116 ||
-                        spyroState == (byte)SpyroStates.DeathSquash
+                        spyroState == (byte)SpyroStates.DeathSquash ||
+                        currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0
                     )
                 )
                 {
@@ -1063,6 +1074,11 @@ public partial class App : Application
                     {
                         deathlinkCause = "Squashed";
                     }
+                    else if (currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0)
+                    {
+                        deathlinkCause = "Eaten by sharks";
+                        Memory.Write(Addresses.AquariaSharkDeathlink, 0);
+                    }
                     Log.Logger.Information($"Sending DeathLink. Cause: {deathlinkCause}");
                     if (deathlinkCause == "Unknown")
                     {
@@ -1081,7 +1097,8 @@ public partial class App : Application
                         (spyroState == (byte)SpyroStates.Flop && spyroVelocityFlag == 1 && 0x3b < animationLength) ||
                         spyroState == (byte)SpyroStates.DeathBurn ||
                         spyroState == (byte)SpyroStates.DeathDrowning && animationLength >= 116 ||
-                        spyroState == (byte)SpyroStates.DeathSquash
+                        spyroState == (byte)SpyroStates.DeathSquash ||
+                        currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0
                     )
                 )
                 {
@@ -1104,6 +1121,13 @@ public partial class App : Application
                     // Probably easier to just patch.
                     //Memory.Write(Addresses.localGemLoadFixAddress, 0);
                     //Memory.Write(Addresses.globalGemLoadFixAddress, 0);
+
+                    // Disable repeated 400/400 popup by always skipping the code instead of when gem count is not 400.
+                    uint gemPopupCode = Memory.ReadUInt(Addresses.gemPopupAddress);
+                    if (gemPopupCode == 0x14620012)                             // bne v1,v0,0x80039780
+                    {
+                        Memory.Write(Addresses.gemPopupAddress, 0x0800e5e0);    // j 0x80039780
+                    }
                 }
                 if (currentLevel == LevelInGameIDs.Colossus)
                 {
@@ -1139,6 +1163,21 @@ public partial class App : Application
                             Memory.Write(thiefZCoordinate, 0);
                         }
                     }
+                }
+                else if (currentLevel == LevelInGameIDs.AquariaTowers)
+                {
+                    // Take an empty block of space and use it for DeathLink handling code for sharks.
+                    // This block sets Addresses.AquariaSharkDeathlink to 1 if the sharks kill Spyro, then calls normal OnDeath code.
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode, 0x24020001);      // li v0, 0x1
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 4, 0x3c018008);  // lui at, 0x8008
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 8, 0xac224788);  // sw v0, 0x4788(at)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 12, 0x0);        // nop
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 16, 0x0c00cb9d); // jal OnDeath (0x80032e74)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 20, 0x0);        // nop
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 24, 0x0801e23c); // j 0x800788f0 (AquariaSharkDeathJAL + 8)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 28, 0x0);        // nop
+
+                    Memory.Write(Addresses.AquariaSharkDeathJAL, 0x080211e4);           // j 0x80084790 (AquariaSharkDeathlinkCode)
                 }
                 else if (currentLevel == LevelInGameIDs.BreezeHarbor)
                 {
@@ -1415,6 +1454,7 @@ public partial class App : Application
                 }
             }
         }
+        // Cosmetics
         Memory.Write(Addresses.RedGemShadow, int.Parse(Client.Options?.GetValueOrDefault("red_gem_shadow_color", "0").ToString()));
         Memory.Write(Addresses.RedGemColor, int.Parse(Client.Options?.GetValueOrDefault("red_gem_color", "0").ToString()));
         Memory.Write(Addresses.GreenGemShadow, int.Parse(Client.Options?.GetValueOrDefault("green_gem_shadow_color", "0").ToString()));
@@ -1457,6 +1497,41 @@ public partial class App : Application
                 Memory.WriteByte(Addresses.PortalTextGreen, 64);
                 Memory.WriteByte(Addresses.PortalTextBlue, 0);
                 break;
+        }
+        bool musicValuesChanged = false;
+        Dictionary<int, int>? mainLevelMusicChanges = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, int>>(
+            Client.Options?.GetValueOrDefault("main_level_music_array_changes", new Dictionary<int, int>()).ToString()
+        );
+        if (mainLevelMusicChanges != null)
+        {
+            foreach (int levelID in mainLevelMusicChanges.Keys)
+            {
+                byte song = Memory.ReadByte(Addresses.MainLevelMusicArray + (uint)levelID);
+                if (song != (byte)mainLevelMusicChanges[levelID])
+                {
+                    Memory.WriteByte(Addresses.MainLevelMusicArray + (uint)levelID, (byte)mainLevelMusicChanges[levelID]);
+                    musicValuesChanged = true;
+                }
+            }
+        }
+        if (musicValuesChanged)
+        {
+            byte currentLevel = Memory.ReadByte(Addresses.CurrentLevelAddress);
+            if (mainLevelMusicChanges.ContainsKey((int)currentLevel))
+            {
+                uint currentLevelSongStartOffset = 0x15f90 + Memory.ReadUInt(Addresses.FullMusicArray + (uint)(8 * mainLevelMusicChanges[(int)currentLevel]));
+                uint currentLevelSongTimestamp = Memory.ReadUInt(Addresses.CurrentMusicData + 4);
+                ushort currentLevelSongLength = Memory.ReadUShort(Addresses.FullMusicArray + (uint)(4 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+                short currentLevelSongChannel = Memory.ReadShort(Addresses.FullMusicArray + (uint)(6 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+                Memory.Write(Addresses.CurrentMusicData, currentLevelSongStartOffset);
+                if (currentLevelSongTimestamp < currentLevelSongStartOffset || currentLevelSongStartOffset + 60 > currentLevelSongStartOffset + currentLevelSongLength)
+                {
+                    Memory.Write(Addresses.CurrentMusicData + 4, currentLevelSongStartOffset);
+                }
+                Memory.Write(Addresses.CurrentMusicData + 8, currentLevelSongStartOffset + currentLevelSongLength);
+                Memory.Write(Addresses.CurrentMusicData + 12, currentLevelSongChannel);
+                Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)1);
+            }
         }
         if (
             _cosmeticEffects.Count > 0 &&
@@ -1621,12 +1696,16 @@ public partial class App : Application
                 rerouteWarp = true;
             }
         }
-        if (warpOption == WTWarpOptions.WallOrb)
+        else if (warpOption == WTWarpOptions.WallOrb)
         {
             if (Memory.ReadBit(Addresses.WTWallOrbAddress, Addresses.WTWallOrbBit))
             {
                 rerouteWarp = true;
             }
+        }
+        else if (warpOption == WTWarpOptions.Always)
+        {
+            rerouteWarp = true;
         }
         Memory.Write(Addresses.WTWarpAddress, (short)(rerouteWarp ? 1 : 0));
     }

@@ -47,6 +47,7 @@ class WTWarpOptions:
     VANILLA = 0
     DOOR = 1
     WALL_ORB = 2
+    ALWAYS = 3
 
 class AbilityOptions:
     VANILLA = 0
@@ -80,6 +81,13 @@ class RandomizeGemColorOptions:
     SHUFFLE = 1
     RANDOM = 2
     TRUE_RANDOM = 3
+
+class MusicsanityOptions:
+    OFF = 0
+    LIKE_WITH_LIKE_NO_MINIGAMES = 1
+    LIKE_WITH_LIKE = 2
+    FULL_NO_MINIGAMES = 3
+    FULL = 4
 
 
 class GoalOption(Choice):
@@ -175,18 +183,32 @@ class StartWithWarps(Toggle):
 
 class WTWarpOption(Choice):
     """When warping to Winter Tundra from outside Crush or Gulp,
-    reroutes the warp to inside the castle. No logic is changed.
+    reroutes the warp to inside the castle. Logically grants access
+    to inner Winter Tundra.
     Represents planned vanilla functionality that was cut.
     Vanilla: Warps always go to outside the castle.
     Door: Warps inside the castle if you have unlocked the
         door with headbash.
     Wall Orb: Warps inside the castle if you have the WT wall orb.
+    Always: Warps always go to inside the castle. Logic will expect
+        homeworld navigation via Winter Tundra's castle warp.
     """
     display_name = "Winter Tundra Inner Warp"
     default = WTWarpOptions.VANILLA
     option_vanilla = WTWarpOptions.VANILLA
     option_door = WTWarpOptions.DOOR
     option_wall_orb = WTWarpOptions.WALL_ORB
+    option_always = WTWarpOptions.ALWAYS
+
+class ProfessorDoor(Toggle):
+    """Automatically open the Professor's door in Autumn Plains,
+    which normally requires 8 orbs (normally bypassable with tricks).
+    This door also affects the behavior of the warp from Crush to
+    Autumn Plains. When the door is open, this warp will bring you
+    next to Gulp, allowing you to skip needing climb to access the second
+    half of Autumn Plains. This option is intended for use with
+    open world with open world warps, but can be used without."""
+    display_name = "Open Professor's Door"
 
 class Enable25PctGemChecksOption(Toggle):
     """Adds checks for getting 25% of the gems in a level"""
@@ -589,6 +611,26 @@ class GemColor(Choice):
     option_random_choice = RandomizeGemColorOptions.RANDOM
     option_true_random = RandomizeGemColorOptions.TRUE_RANDOM
 
+class Musicsanity(Choice):
+    """Shuffles most of the music in game.
+    Off: No changes.
+    Like With Like: Music is shuffled within its type:
+        Homeworld, Normal Level, Boss.
+    Full: Music is shuffled regardless of type.
+    """
+    display_name = "Musicsanity"
+    default = MusicsanityOptions.OFF
+    option_off = MusicsanityOptions.OFF
+    option_like_with_like = MusicsanityOptions.LIKE_WITH_LIKE
+    option_full = MusicsanityOptions.FULL
+
+class StreamerMusic(Toggle):
+    """Streaming platforms sometimes mute VODs with the Autumn Plains
+    or Winter Tundrea homeworld music.
+    Replaces these with Summer Forest.
+    """
+    display_name = "Streamer-Friendly Music"
+
 @dataclass
 class Spyro2Option(PerGameCommonOptions):
     goal: GoalOption
@@ -602,6 +644,7 @@ class Spyro2Option(PerGameCommonOptions):
     open_world_warp_unlocks: StartWithWarps
     start_with_abilities: StartWithAbilities
     wt_warp_options: WTWarpOption
+    open_professor_door: ProfessorDoor
     level_lock_options: LevelLockOption
     level_unlocks: StartingLevelCount
     enable_25_pct_gem_checks: Enable25PctGemChecksOption
@@ -651,6 +694,8 @@ class Spyro2Option(PerGameCommonOptions):
     easy_gulp: EasyGulp
     portal_gem_collection_color: PortalAndGemCollectionColor
     gem_color: GemColor
+    musicsanity: Musicsanity
+    streamer_music: StreamerMusic
 
 
 # Group logic/trick options together, especially for the local WebHost.
@@ -685,6 +730,7 @@ spyro_options_groups = [
             RiptoDoorOrbs,
             MoneybagsSettings,
             WTWarpOption,
+            ProfessorDoor,
             # PowerupLockSettings,
         ],
         False
@@ -741,7 +787,9 @@ spyro_options_groups = [
         "Cosmetics",
         [
             PortalAndGemCollectionColor,
-            GemColor
+            GemColor,
+            Musicsanity,
+            StreamerMusic
         ],
         True
     ),
