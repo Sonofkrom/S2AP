@@ -278,7 +278,7 @@ class GemsanityGemBundleSize(Choice):
      """Define the amount of gems awarded by each Gem Bundle item.
      Determines how many items are added to the item pool.
      Determines how many gem locations are randomly selected if
-         Gemsanity is set to Partial (sdds one location per bundle item).
+         Gemsanity is set to Partial (adds one location per bundle item).
      WARNING: Selecting an option smaller than 25 requires the host to
          edit allow_full_gemsanity in their yaml file.
      Default (50):adds 8 Gem Bundles per Level to the Item Pool (168 Total)
@@ -367,6 +367,10 @@ class EnableTrapInvisible(Toggle):
     Duckstation must be run in Interpreter mode for this to have any effect."""
     display_name = "Enable Invisibility Trap"
 
+class EnableTrapLazySparx(Toggle):
+    """Adds making Sparx refuse to pick up gems for 30 seconds to the item pool."""
+    display_name = "Enable Lazy Sparx Trap"
+
 class EnableTrapRemappedController(Toggle):
     """Allows filler items to "remap" your controller briefly.
     Duckstation must be run in Interpreter mode for this to have any effect."""
@@ -428,6 +432,36 @@ class FireballAbility(Choice):
     option_in_pool = AbilityOptions.IN_POOL
     option_off = AbilityOptions.OFF
     option_start_with = AbilityOptions.START_WITH
+
+class SparxGemFinderAbility(Choice):
+    """Settings for Sparx's gem finder ability.
+    Vanilla - Holding L1+R1+R2 has Sparx point to the nearest gem.
+        Beating Ripto makes the effect permanent.
+    In Pool - Adds Sparx Gem Finder to the item pool.
+        Behaves like Vanilla once you find the item.
+    Off - Removes the ability for Sparx to point to gems."""
+    display_name = "Sparx Gem Finder"
+    default = AbilityOptions.VANILLA
+    option_vanilla = AbilityOptions.VANILLA
+    option_in_pool = AbilityOptions.IN_POOL
+    option_off = AbilityOptions.OFF
+
+class ExtendedSparxRangeAbility(Choice):
+    """Settings for Extended Sparx range.
+    Vanilla - Beating Ripto doubles Sparx's range.
+    In Pool - Adds Extended Sparx Range to the item pool.
+        This item doubles Sparx's range.
+        Beating Ripto has no effect on your range."""
+    display_name = "Extended Sparx Range"
+    default = AbilityOptions.VANILLA
+    option_vanilla = AbilityOptions.VANILLA
+    option_in_pool = AbilityOptions.IN_POOL
+
+class ExtraHitPoint(Toggle):
+    """Adds an extra hit point (equivalent to the in game cheat code)
+    to the item pool. This does not affect progressive health logic.
+    Has no effect when Progressive Sparx Health Upgrades are True Sparxless."""
+    display_name = "Extra Hit Point in Item Pool"
 
 class TrickDifficulty(Choice):
     """Determines which tricks, if any, are in logic.
@@ -594,10 +628,14 @@ class Spyro2Option(PerGameCommonOptions):
     enable_trap_damage_sparx: EnableTrapDamageSparx
     enable_trap_sparxless: EnableTrapSparxless
     enable_trap_invisibility: EnableTrapInvisible
+    enable_trap_lazy_sparx: EnableTrapLazySparx
     enable_progressive_sparx_health: EnableProgressiveSparxHealth
     enable_progressive_sparx_logic: ProgressiveSparxHealthLogic
     double_jump_ability: DoubleJumpAbility
     permanent_fireball_ability: FireballAbility
+    sparx_gem_finder: SparxGemFinderAbility
+    extended_sparx_range: ExtendedSparxRangeAbility
+    extra_hit_point: ExtraHitPoint
     trick_difficulty: TrickDifficulty
     custom_tricks: CustomTricks
     colossus_starting_goals: ColossusStartingGoals
@@ -664,7 +702,8 @@ spyro_options_groups = [
             TrapFillerPercent,
             EnableTrapDamageSparx,
             EnableTrapSparxless,
-            EnableTrapInvisible
+            EnableTrapInvisible,
+            EnableTrapLazySparx
         ],
         True
     ),
@@ -672,7 +711,10 @@ spyro_options_groups = [
         "Sparx Settings",
         [
             EnableProgressiveSparxHealth,
-            ProgressiveSparxHealthLogic
+            ProgressiveSparxHealthLogic,
+            SparxGemFinderAbility,
+            ExtendedSparxRangeAbility,
+            ExtraHitPoint
         ],
         True
     ),

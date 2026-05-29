@@ -358,6 +358,7 @@ class Spyro2World(World):
                 name == "Dragon Shores Token" and self.options.goal.value == GoalOptions.TEN_TOKENS:
             item_classification = ItemClassification.progression
         elif item_dictionary[name].category in useful_categories or \
+                name in ["Extended Sparx Range", "Sparx Gem Finder", "Extra Hit Point"] or \
                 not self.options.enable_progressive_sparx_logic.value and name == 'Progressive Sparx Health Upgrade' or \
                 name in ["Double Jump Ability"] and self.options.trick_difficulty.value == TrickDifficultyOptions.OFF:
             item_classification = ItemClassification.useful
@@ -716,8 +717,12 @@ class Spyro2World(World):
                 "enable_trap_damage_sparx": self.options.enable_trap_damage_sparx.value,
                 "enable_trap_sparxless": self.options.enable_trap_sparxless.value,
                 "enable_trap_invisibility": self.options.enable_trap_invisibility.value,
+                "enable_trap_lazy_sparx": self.options.enable_trap_lazy_sparx.value,
                 "enable_progressive_sparx_health": self.options.enable_progressive_sparx_health.value,
                 "enable_progressive_sparx_logic": self.options.enable_progressive_sparx_logic.value,
+                "sparx_gem_finder": self.options.sparx_gem_finder.value,
+                "extended_sparx_range": self.options.extended_sparx_range.value,
+                "extra_hit_point": self.options.extra_hit_point.value,
                 "double_jump_ability": self.options.double_jump_ability.value,
                 "permanent_fireball_ability": self.options.permanent_fireball_ability.value,
                 "trick_difficulty": self.options.trick_difficulty.value,

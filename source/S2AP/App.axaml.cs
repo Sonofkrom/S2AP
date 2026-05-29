@@ -51,10 +51,10 @@ public partial class App : Application
     private static bool _hasSubmittedGoal { get; set; }
     private static bool _useQuietHints { get; set; }
     private static int _unlockedLevels { get; set; }
-    private static Timer _sparxTimer { get; set; }
     private static Timer _loadGameTimer { get; set; }
     private static Timer _abilitiesTimer { get; set; }
     private static Timer _cosmeticsTimer { get; set; }
+    private static long _lazySparxEnd { get; set; }
     private static MoneybagsOptions _moneybagsOption { get; set; }
     private static PortalTextColor _portalTextColor { get; set; }
     private static LevelInGameIDs _previousLevel { get; set; }
@@ -648,6 +648,20 @@ public partial class App : Application
                         Memory.Write(Addresses.InvisibleAddress2, (short)0);
                     });
                     break;
+                case "Lazy Sparx Trap":
+                    await Task.Run(async () =>
+                    {
+                        long currentTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        if (currentTimestamp > _lazySparxEnd)
+                        {
+                            _lazySparxEnd = currentTimestamp + 30;
+                        }
+                        else
+                        {
+                            _lazySparxEnd = _lazySparxEnd + 30;
+                        }
+                    });
+                    break;
                 case "Destructive Spyro":
                     await Task.Run(async () =>
                     {
@@ -930,6 +944,7 @@ public partial class App : Application
             HandleMoneybagsUnlocks();
             HandleInnerWTWarpAccess();
             CheckGoalCondition();
+            HandleSparxAbilities();
             byte lifeCount = Memory.ReadByte(Addresses.PlayerLives);
             AbilityOptions doubleJumpOption = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("double_jump_ability", "0").ToString());
             int hasDoubleJumpItem = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Double Jump Ability").Count() ?? 0);
@@ -1336,36 +1351,6 @@ public partial class App : Application
     }
     
     /**
-     * Handles the Sparx health upgrades within the game loop.
-     */
-    private static async void HandleMaxSparxHealth(object source, ElapsedEventArgs e)
-    {
-        if (!Helpers.IsInGame() || Client.ItemState == null || Client.CurrentSession == null)
-        {
-            return;
-        }
-        byte currentHealth = Memory.ReadByte(Addresses.PlayerHealth);
-        // Doing these checks trades efficency for correctness.
-        // We could probably do this check only upon connecting or receiving
-        // a health upgrade, but this is guaranteed to be correct.
-        ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
-        byte maxHealth = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Progressive Sparx Health Upgrade").Count() ?? 0);
-        if (sparxOption == ProgressiveSparxHealthOptions.Blue)
-        {
-            maxHealth += 2;
-        }
-        else if (sparxOption == ProgressiveSparxHealthOptions.Green)
-        {
-            maxHealth += 1;
-        }
-        // Don't adjust negative health, which breaks deathlink.
-        if (currentHealth <= 128 && currentHealth > maxHealth)
-        {
-            Memory.WriteByte(Addresses.PlayerHealth, maxHealth);
-        }
-    }
-    
-    /**
      * Changes Spyro's color and big head mode, if there are any queued effects.
      * 
      * Also handles gem cosmetics and level lock options, which would be better moved elsewhere.
@@ -1740,7 +1725,109 @@ public partial class App : Application
             }
         }
     }
-    
+
+    /**
+     * Handles Spyro 3-style Sparx abilities like gem finder, as well as max health.
+     */
+    private static void HandleSparxAbilities()
+    {
+        if (!Helpers.IsInGame() || Client.ItemState == null || Client.CurrentSession == null)
+        {
+            return;
+        }
+        GameStatus gameStatus = (GameStatus)Memory.ReadByte(Addresses.GameStatus);
+        if (gameStatus == GameStatus.Paused || gameStatus == GameStatus.LoadingWorld || gameStatus == GameStatus.Cutscene)
+        {
+            return;
+        }
+        byte currentHealth = Memory.ReadByte(Addresses.PlayerHealth);
+        // Doing these checks trades efficency for correctness.
+        // We could probably do this check only upon connecting or receiving
+        // a health upgrade, but this is guaranteed to be correct.
+        ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
+        byte maxHealth = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Progressive Sparx Health Upgrade").Count() ?? 0);
+        byte extraHitPoint = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Extra Hit Point").Count() ?? 0);
+        if (sparxOption == ProgressiveSparxHealthOptions.Off)
+        {
+            maxHealth = 3;  // Ignore Progressive Sparx Health Upgrade items when the setting is off.
+        }
+        else if (sparxOption == ProgressiveSparxHealthOptions.Blue)
+        {
+            maxHealth += 2;
+        }
+        else if (sparxOption == ProgressiveSparxHealthOptions.Green)
+        {
+            maxHealth += 1;
+        }
+        if (sparxOption != ProgressiveSparxHealthOptions.TrueSparxless)
+        {
+            // Ensure behavior matches the cheat code, and avoid rendering issues from more max health than intended.
+            if (extraHitPoint > 1)
+            {
+                extraHitPoint = 1;
+            }
+            maxHealth += extraHitPoint;
+        }
+        // Unlike Spyro 3, the player respawns at maxHealth, so this handles most cases, except immediately on connect.
+        Memory.WriteByte(Addresses.MaxHealth, maxHealth);
+        // Don't adjust negative health, which breaks deathlink.
+        if (currentHealth <= 128 && currentHealth > maxHealth)
+        {
+            Memory.WriteByte(Addresses.PlayerHealth, maxHealth);
+        }
+
+        AbilityOptions sparxGemFinder = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("sparx_gem_finder", "0").ToString());
+        AbilityOptions extendedSparxRange = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("extended_sparx_range", "0").ToString());
+
+        if (sparxGemFinder != AbilityOptions.Vanilla)
+        {
+            LevelInGameIDs currentLevel = (LevelInGameIDs)Memory.ReadByte(Addresses.CurrentLevelAddress);
+            if (Addresses.SparxGemFinderLookup.ContainsKey(currentLevel))
+            {
+                bool hasGemFinder = (Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Sparx Gem Finder").Count() ?? 0) > 0;
+                if (hasGemFinder)
+                {
+                    Memory.Write(Addresses.SparxGemFinderLookup[currentLevel][0], Addresses.SparxGemFinderLookup[currentLevel][1]);
+                }
+                else
+                {
+                    Memory.Write(Addresses.SparxGemFinderLookup[currentLevel][0], Addresses.SparxGemFinderLookup[currentLevel][2]);
+                    Memory.Write(Addresses.NearestGem, 0);  // Sparx can get locked pointing at nonexistant objects if this isn't forced to be null.
+                }
+            }
+        }
+
+        if (_lazySparxEnd > DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+        {
+            Memory.Write(Addresses.SparxHorizontalRange, 1);
+            Memory.Write(Addresses.SparxVerticalRange, 1);
+        }
+        else if (extendedSparxRange == AbilityOptions.InPool)
+        {
+            bool isRiptoDefeated = (Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Ripto Defeated").Count() ?? 0) > 0;
+            bool hasExtendedRange = (Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Extended Sparx Range").Count() ?? 0) > 0;
+            int horizontalRange = 2062;
+            int verticalRange = 640;
+            if (hasExtendedRange)
+            {
+                horizontalRange *= 2;
+                verticalRange *= 2;
+            }
+            if (isRiptoDefeated)
+            {
+                // Counteract the in-game effect that doubles these when Ripto is defeated.
+                horizontalRange /= 2;
+                verticalRange /= 2;
+            }
+            Memory.Write(Addresses.SparxHorizontalRange, horizontalRange);
+            Memory.Write(Addresses.SparxVerticalRange, verticalRange);
+        } else
+        {
+            Memory.Write(Addresses.SparxHorizontalRange, 2062);
+            Memory.Write(Addresses.SparxVerticalRange, 640);
+        }
+    }
+
     /**
      * Turns off big head mode and also flat Spyro mode.
      */
@@ -2080,15 +2167,6 @@ public partial class App : Application
         _cosmeticsTimer.Interval = 5000;
         _cosmeticsTimer.Enabled = true;
 
-        ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
-        if (sparxOption != ProgressiveSparxHealthOptions.Off)
-        {
-            _sparxTimer = new Timer();
-            _sparxTimer.Elapsed += new ElapsedEventHandler(HandleMaxSparxHealth);
-            _sparxTimer.Interval = 500;
-            _sparxTimer.Enabled = true;
-        }
-
         _moneybagsOption = (MoneybagsOptions)int.Parse(Client.Options?.GetValueOrDefault("moneybags_settings", "0").ToString());
         _portalTextColor = (PortalTextColor)int.Parse(Client.Options?.GetValueOrDefault("portal_gem_collection_color", "0").ToString());
 
@@ -2121,6 +2199,7 @@ public partial class App : Application
         _handleGemsanity = false;
         _unlockedLevels = 0;
         _requiredOrbs = 65;
+        _lazySparxEnd = 0;
 
         if (_deathLinkService != null)
         {
@@ -2141,11 +2220,6 @@ public partial class App : Application
         {
             _cosmeticsTimer.Enabled = false;
             _cosmeticsTimer = null;
-        }
-        if (_sparxTimer != null)
-        {
-            _sparxTimer.Enabled = false;
-            _sparxTimer = null;
         }
     }
 }
