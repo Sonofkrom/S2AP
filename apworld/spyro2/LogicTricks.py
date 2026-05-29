@@ -188,6 +188,14 @@ known_logic_tricks = {
                     to Elora.
                     '''
     },
+    'Autumn Plains Hover to Wall': {
+        'name'    : 'logic_ap_wall_hover',
+        'tags'    : ("Autumn Plains",),
+        'tooltip' : '''\
+                    Logic expects a fairly precise glide and hover to
+                    the outer wall from standing next to the Zephyr portal.
+                    '''
+    },
     'Autumn Plains Climb Skip': {
         'name'    : 'logic_ap_climb_skip',
         'tags'    : ("Double Jump", "Autumn Plains",),

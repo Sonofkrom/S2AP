@@ -263,6 +263,9 @@ class RAM:
     WTDoorGemBit = 7
     WTWarpAddress = 0x6470a
 
+    # Professor's Door in Autumn Plains
+    ProfessorDoorAddress = 0x64702
+
     MainLevelMusicArray = 0x60140
     FullMusicArray = 0x64de4
     CurrentMusicData = 0x68320

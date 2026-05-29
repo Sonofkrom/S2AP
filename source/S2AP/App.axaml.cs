@@ -929,6 +929,14 @@ public partial class App : Application
             }
             HandleMoneybagsUnlocks();
             HandleInnerWTWarpAccess();
+
+            // PhoenixAki addition: open professor's door if professor's option is enabled.
+            int doorOption = int.Parse(Client.Options?.GetValueOrDefault("open_professor_door", "0").ToString());
+            if (doorOption == 1)
+            {
+                Memory.Write(Addresses.APDoorAddress, (short)1);
+            }
+
             CheckGoalCondition();
             byte lifeCount = Memory.ReadByte(Addresses.PlayerLives);
             AbilityOptions doubleJumpOption = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("double_jump_ability", "0").ToString());
@@ -1703,12 +1711,16 @@ public partial class App : Application
                 rerouteWarp = true;
             }
         }
-        if (warpOption == WTWarpOptions.WallOrb)
+        else if (warpOption == WTWarpOptions.WallOrb)
         {
             if (Memory.ReadBit(Addresses.WTWallOrbAddress, Addresses.WTWallOrbBit))
             {
                 rerouteWarp = true;
             }
+        }
+        else if (warpOption == WTWarpOptions.Always)
+        {
+            rerouteWarp = true;
         }
         Memory.Write(Addresses.WTWarpAddress, (short)(rerouteWarp ? 1 : 0));
     }

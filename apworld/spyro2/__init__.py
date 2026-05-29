@@ -731,6 +731,7 @@ class Spyro2World(World):
                 "open_world_warp_unlocks": self.options.open_world_warp_unlocks.value,
                 "start_with_abilities": self.options.start_with_abilities.value,
                 "wt_warp_options": self.options.wt_warp_options.value,
+                "open_professor_door": self.options.open_professor_door.value,
                 "level_lock_options": self.options.level_lock_options.value,
                 "level_unlocks": self.options.level_unlocks.value,
                 "enable_25_pct_gem_checks": self.options.enable_25_pct_gem_checks.value,

@@ -83,7 +83,8 @@
         {
             Vanilla = 0,
             Door = 1,
-            WallOrb = 2
+            WallOrb = 2,
+            Always = 3
         }
 
         public enum BomboOptions

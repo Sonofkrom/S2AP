@@ -47,6 +47,7 @@ class WTWarpOptions:
     VANILLA = 0
     DOOR = 1
     WALL_ORB = 2
+    ALWAYS = 3
 
 class AbilityOptions:
     VANILLA = 0
@@ -182,18 +183,32 @@ class StartWithWarps(Toggle):
 
 class WTWarpOption(Choice):
     """When warping to Winter Tundra from outside Crush or Gulp,
-    reroutes the warp to inside the castle. No logic is changed.
+    reroutes the warp to inside the castle. Logically grants access
+    to inner Winter Tundra.
     Represents planned vanilla functionality that was cut.
     Vanilla: Warps always go to outside the castle.
     Door: Warps inside the castle if you have unlocked the
         door with headbash.
     Wall Orb: Warps inside the castle if you have the WT wall orb.
+    Always: Warps always go to inside the castle. Logic will expect
+        homeworld navigation via Winter Tundra's castle warp.
     """
     display_name = "Winter Tundra Inner Warp"
     default = WTWarpOptions.VANILLA
     option_vanilla = WTWarpOptions.VANILLA
     option_door = WTWarpOptions.DOOR
     option_wall_orb = WTWarpOptions.WALL_ORB
+    option_always = WTWarpOptions.ALWAYS
+
+class ProfessorDoor(Toggle):
+    """Automatically open the Professor's door in Autumn Plains,
+    which normally requires 8 orbs (normally bypassable with tricks).
+    This door also affects the behavior of the warp from Crush to
+    Autumn Plains. When the door is open, this warp will bring you
+    next to Gulp, allowing you to skip needing climb to access the second
+    half of Autumn Plains. This option is intended for use with
+    open world with open world warps, but can be used without."""
+    display_name = "Open Professor's Door"
 
 class Enable25PctGemChecksOption(Toggle):
     """Adds checks for getting 25% of the gems in a level"""
@@ -595,6 +610,7 @@ class Spyro2Option(PerGameCommonOptions):
     open_world_warp_unlocks: StartWithWarps
     start_with_abilities: StartWithAbilities
     wt_warp_options: WTWarpOption
+    open_professor_door: ProfessorDoor
     level_lock_options: LevelLockOption
     level_unlocks: StartingLevelCount
     enable_25_pct_gem_checks: Enable25PctGemChecksOption
@@ -676,6 +692,7 @@ spyro_options_groups = [
             RiptoDoorOrbs,
             MoneybagsSettings,
             WTWarpOption,
+            ProfessorDoor,
             # PowerupLockSettings,
         ],
         False
