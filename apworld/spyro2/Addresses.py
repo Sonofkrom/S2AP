@@ -155,6 +155,7 @@ class RAM:
     localGemLoadFixAddress = 0x00076B98
     globalGemLoadFixAddress = 0x00076BA0
     playBeepAddress = 0x5429c
+    gemPopupAddress = 0x39734
 
     # Address of portal surface flags.
     SummerPortalBlock = 0x000e2d34

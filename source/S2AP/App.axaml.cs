@@ -1098,6 +1098,13 @@ public partial class App : Application
                     // Probably easier to just patch.
                     //Memory.Write(Addresses.localGemLoadFixAddress, 0);
                     //Memory.Write(Addresses.globalGemLoadFixAddress, 0);
+
+                    // Disable repeated 400/400 popup by always skipping the code instead of when gem count is not 400.
+                    uint gemPopupCode = Memory.ReadUInt(Addresses.gemPopupAddress);
+                    if (gemPopupCode == 0x14620012)                             // bne v1,v0,0x80039780
+                    {
+                        Memory.Write(Addresses.gemPopupAddress, 0x0800e5e0);    // j 0x80039780
+                    }
                 }
                 if (currentLevel == LevelInGameIDs.Colossus)
                 {
