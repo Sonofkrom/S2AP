@@ -1,3 +1,5 @@
+from .Enums import LevelInGameIDs
+
 class RAM:
     TotalTalismanAddress = 0x00067108
     TotalOrbAddress = 0x0006702c
@@ -252,6 +254,38 @@ class RAM:
     ]
     ShadyHeadbashCheck = 0x7d6c0
     GulpDoubleDamage = 0x120c5e
+
+    # Sparx Abilities
+    SparxHorizontalRange = 0x61a90
+    SparxVerticalRange = 0x61a98
+    # List is formatted as [addressToChange, hasAbilityCode, lacksAbilityCode].
+    # hasAbilityCode is always lw v1, -0x7c60(v1)
+    # lacksAbilityCode is an unconditional jump to the block of code after the gem finder ability code.
+    SparxGemFinderLookup = {
+        LevelInGameIDs.SummerForest: [0x72308, 0x8c6383a0, 0x0801c919],
+        LevelInGameIDs.Glimmer: [0x72794, 0x8c6383a0, 0x0801ca3c],
+        LevelInGameIDs.IdolSprings: [0x735f8, 0x8c6383a0, 0x0801cdd5],
+        LevelInGameIDs.Colossus: [0x72824, 0x8c6383a0, 0x0801ca60],
+        LevelInGameIDs.Hurricos: [0x72034, 0x8c6383a0, 0x0801c863],
+        LevelInGameIDs.AquariaTowers: [0x72f8c, 0x8c6383a0, 0x0801cc36],
+        LevelInGameIDs.SunnyBeach: [0x73b54, 0x8c6383a0, 0x0801cf2b],
+        LevelInGameIDs.AutumnPlains: [0x72668, 0x8c6383a0, 0x0801c9f1],
+        LevelInGameIDs.SkelosBadlands: [0x71868, 0x8c6383a0, 0x0801c670],
+        LevelInGameIDs.CrystalGlacier: [0x72630, 0x8c6383a0, 0x0801c9e2],
+        LevelInGameIDs.BreezeHarbor: [0x73c4c, 0x8c6383a0, 0x0801cf69],
+        LevelInGameIDs.Zephyr: [0x72110, 0x8c6383a0, 0x0801c89a],
+        LevelInGameIDs.Scorch: [0x71d68, 0x8c6383a0, 0x0801c7b0],
+        LevelInGameIDs.ShadyOasis: [0x721f4, 0x8c6383a0, 0x0801c8d3],
+        LevelInGameIDs.MagmaCone: [0x738e0, 0x8c6383a0, 0x0801ce8e],
+        LevelInGameIDs.FractureHills: [0x758c4, 0x8c6383a0, 0x0801d688],
+        LevelInGameIDs.WinterTundra: [0x725d8, 0x8c6383a0, 0x0801c9cd],
+        LevelInGameIDs.MysticMarsh: [0x7366c, 0x8c6383a0, 0x0801cdf2],
+        LevelInGameIDs.CloudTemples: [0x70e48, 0x8c6383a0, 0x0801c3e8],
+        LevelInGameIDs.RoboticaFarms: [0x7277c, 0x8c6383a0, 0x0801ca35],
+        LevelInGameIDs.Metropolis: [0x73eb8, 0x8c6383a0, 0x0801d005],
+    }
+    NearestGem = 0x61ab0
+    MaxHealth = 0x61a8c
 
     # Used to verify game is correct
     GuidebookText = 0x00010308

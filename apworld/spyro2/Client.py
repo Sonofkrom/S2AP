@@ -246,7 +246,7 @@ class Spyro2Client(BizHawkClient):
 
     apworld_manifest = orjson.loads(pkgutil.get_data(__name__, "archipelago.json").decode("utf-8"))
     client_version = apworld_manifest["world_version"]
-    supported_versions = ["2.0.0", "2.0.0-rc", "2.0.1"]
+    supported_versions = ["2.0.1"]
 
     boolsyncprogress = False
     syncWaitConfirm = False
@@ -281,6 +281,7 @@ class Spyro2Client(BizHawkClient):
         self.isDestructive = False
         self.destructiveEnd = 0
         self.maxHealth = 3
+        self.extraHitPoint = 0
         self.currentLevel = None
         self.currentOrbs = 0
         self.currentGems = 0
@@ -289,6 +290,9 @@ class Spyro2Client(BizHawkClient):
         self.currentAPTalismans = 0
         self.currentTokens = 0
         self.currentSkillPoints = 0
+        self.lazySparxEnd = 0
+        self.extendedRange = False
+        self.gemFinder = False
 
     def initialize_client(self):
         self.messagequeue = []
@@ -315,6 +319,7 @@ class Spyro2Client(BizHawkClient):
         self.isDestructive = False
         self.destructiveEnd = 0
         self.maxHealth = 3
+        self.extraHitPoint = 0
         self.currentLevel = None
         self.currentOrbs = 0
         self.currentGems = 0
@@ -323,6 +328,9 @@ class Spyro2Client(BizHawkClient):
         self.currentAPTalismans = 0
         self.currentTokens = 0
         self.currentSkillPoints = 0
+        self.lazySparxEnd = 0
+        self.extendedRange = False
+        self.gemFinder = False
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         s2_identifier_ram_address: int = 0x9244
@@ -544,7 +552,12 @@ class Spyro2Client(BizHawkClient):
                 startingHealth = 1
             elif sparxOption != SparxUpgradeOptions.OFF:
                 startingHealth = 0
-            self.maxHealth = startingHealth
+            if sparxOption != SparxUpgradeOptions.TRUE_SPARXLESS:
+                # Ensure behavior matches the cheat code, and avoid rendering issues
+                # from more max health than intended.
+                if self.extraHitPoint > 1:
+                    self.extraHitPoint = 1
+            self.maxHealth = startingHealth + self.extraHitPoint
         try:
             if self.gotDatastorage:
                 # Last init to write the status
@@ -584,6 +597,10 @@ class Spyro2Client(BizHawkClient):
                 "collectiblesMask": (RAM.GemMaskAddress, 0x0006b000 - 0x0006ac84, "MainRAM"),
                 "lifeCount": (RAM.PlayerLives, 2, "MainRAM"),
                 "sparxHealth": (RAM.PlayerHealth, 1, "MainRAM"),
+                "maxHealth": (RAM.MaxHealth, 1, "MainRAM"),
+                "horizontalRange": (RAM.SparxHorizontalRange, 4, "MainRAM"),
+                "verticalRange": (RAM.SparxVerticalRange, 4, "MainRAM"),
+                "nearestGem": (RAM.NearestGem, 4, "MainRAM"),
                 "localGemIncrement": (RAM.localGemIncrementAddress, 4, "MainRAM"),
                 "globalGemIncrement": (RAM.globalGemIncrementAddress, 4, "MainRAM"),
                 "globalGemRespawnFix": (RAM.globalGemRespawnFixAddress, 4, "MainRAM"),
@@ -676,6 +693,10 @@ class Spyro2Client(BizHawkClient):
             collectiblesMask = readValues["collectiblesMask"]
             lifeCount = readValues["lifeCount"]
             sparxHealth = readValues["sparxHealth"]
+            maxHealth = readValues["maxHealth"]
+            horizontalRange = readValues["horizontalRange"]
+            verticalRange = readValues["verticalRange"]
+            nearestGem = readValues["nearestGem"]
             localGemIncrement = readValues["localGemIncrement"]
             globalGemIncrement = readValues["globalGemIncrement"]
             globalGemRespawnFix = readValues["globalGemRespawnFix"]
@@ -803,6 +824,12 @@ class Spyro2Client(BizHawkClient):
                         self.unlockedLevels.add(itemName)
                     elif itemName == "Progressive Sparx Health Upgrade":
                         sparxUpgrades += 1
+                    elif itemName == "Extra Hit Point":
+                        self.extraHitPoint = 1
+                    elif itemName == "Extended Sparx Range":
+                        self.extendedRange = True
+                    elif itemName == "Sparx Gem Finder":
+                        self.gemFinder = True
                     if increment < START_recv_index:
                         increment += 1
                     else:
@@ -828,6 +855,12 @@ class Spyro2Client(BizHawkClient):
                             else:
                                 self.destructiveEnd = time.time() + 15
                                 self.isDestructive = True
+                        elif itemName == "Lazy Sparx Trap":
+                            currentTime = time.time()
+                            if self.lazySparxEnd > currentTime:
+                                self.lazySparxEnd += 30
+                            else:
+                                self.lazySparxEnd = currentTime + 30
                         recv_index += 1
 
                 # Writes to memory if there is a new item, after the loop
@@ -867,7 +900,12 @@ class Spyro2Client(BizHawkClient):
                     startingHealth = 1
                 elif sparxOption != SparxUpgradeOptions.OFF:
                     startingHealth = 0
-                self.maxHealth = startingHealth + sparxUpgrades
+                if sparxOption != SparxUpgradeOptions.TRUE_SPARXLESS:
+                    # Ensure behavior matches the cheat code, and avoid rendering issues
+                    # from more max health than intended.
+                    if self.extraHitPoint > 1:
+                        self.extraHitPoint = 1
+                self.maxHealth = startingHealth + sparxUpgrades + self.extraHitPoint
 
                 if ctx.slot_data["options"]["enable_gemsanity"]:
                     itemsWrites += self.calculateCurrentGems(ctx, gemsanityItems, currentGems, totalGems)
@@ -1057,8 +1095,30 @@ class Spyro2Client(BizHawkClient):
                     await bizhawk.write(ctx.bizhawk_ctx, destructiveWrites)
 
                 # ======== Sparx Health Handling ========
-                sparxReads = [sparxHealth]
-                sparxWrites = self.handleSparxChanges(sparxReads)
+                currentLevelGemFinderLine = None
+                currentLevelGemFinderData = None
+                if ctx.slot_data["options"]["sparx_gem_finder"] and currentLevel in RAM.SparxGemFinderLookup.keys():
+                    readsDict = {
+                        "currentLevelGemFinderLine": (RAM.SparxGemFinderLookup[currentLevel][0], 4, "MainRAM"),
+                    }
+                    readTuples = [Value for Value in readsDict.values()]
+
+                    reads = await bizhawk.read(ctx.bizhawk_ctx, readTuples)
+                    reads = [int.from_bytes(reads[i], byteorder="little") for i, x in enumerate(reads)]
+                    readValues = dict(zip(readsDict.keys(), reads))
+                    currentLevelGemFinderLine = readValues["currentLevelGemFinderLine"]
+                    currentLevelGemFinderData = RAM.SparxGemFinderLookup[currentLevel]
+
+                sparxReads = [
+                    sparxHealth,
+                    maxHealth,
+                    horizontalRange,
+                    verticalRange,
+                    currentLevelGemFinderLine,
+                    currentLevelGemFinderData,
+                    nearestGem
+                ]
+                sparxWrites = self.handleSparxChanges(ctx, sparxReads)
                 if len(sparxWrites) > 0:
                     await bizhawk.write(ctx.bizhawk_ctx, sparxWrites)
 
@@ -1903,8 +1963,14 @@ class Spyro2Client(BizHawkClient):
 
         return destructiveWrites
 
-    def handleSparxChanges(self, sparxReads):
+    def handleSparxChanges(self, ctx, sparxReads):
         sparxHealth = sparxReads[0]
+        maxHealth = sparxReads[1]
+        horizontalRange = sparxReads[2]
+        verticalRange = sparxReads[3]
+        currentLevelGemFinderLine = sparxReads[4]
+        currentLevelGemFinderData = sparxReads[5]
+        nearestGem = sparxReads[6]
         currentTimestamp = time.time()
 
         sparxWrites = []
@@ -1927,9 +1993,45 @@ class Spyro2Client(BizHawkClient):
                 i = i + 1
         if 128 > sparxHealth > self.maxHealth:
             sparxHealth = self.maxHealth
-
         if sparxHealth != sparxReads[0]:
             sparxWrites += [(RAM.PlayerHealth, sparxHealth.to_bytes(1, "little"), "MainRAM")]
+        if self.maxHealth != maxHealth:
+            sparxWrites += [(RAM.MaxHealth, self.maxHealth.to_bytes(1, "little"), "MainRAM")]
+
+        if self.lazySparxEnd > time.time():
+            if horizontalRange != 1:
+                sparxWrites += [(RAM.SparxHorizontalRange, (1).to_bytes(4, "little"), "MainRAM")]
+            if verticalRange != 1:
+                sparxWrites += [(RAM.SparxVerticalRange, (1).to_bytes(4, "little"), "MainRAM")]
+        elif ctx.slot_data["options"]["extended_sparx_range"] == AbilityOptions.IN_POOL:
+            hasExtendedRange = self.extendedRange
+            newHorizontalRange = 2062
+            newVerticalRange = 640
+            if hasExtendedRange:
+                newHorizontalRange *= 2
+                newVerticalRange *= 2
+            if self.riptoDefeated:
+                # Counteract the in-game effect that doubles these when Ripto is defeated.
+                newHorizontalRange /= 2
+                newVerticalRange /= 2
+            if horizontalRange != newHorizontalRange:
+                sparxWrites += [(RAM.SparxHorizontalRange, newHorizontalRange.to_bytes(4, "little"), "MainRAM")]
+            if verticalRange != 640:
+                sparxWrites += [(RAM.SparxVerticalRange, newVerticalRange.to_bytes(4, "little"), "MainRAM")]
+        else:
+            if horizontalRange != 2062:
+                sparxWrites += [(RAM.SparxHorizontalRange, (1).to_bytes(4, "little"), "MainRAM")]
+            if verticalRange != 640:
+                sparxWrites += [(RAM.SparxVerticalRange, (1).to_bytes(4, "little"), "MainRAM")]
+
+        if ctx.slot_data["options"]["sparx_gem_finder"] != AbilityOptions.VANILLA:
+            if currentLevelGemFinderLine != None:
+                if self.gemFinder and currentLevelGemFinderLine != currentLevelGemFinderData[1]:
+                    sparxWrites += [(currentLevelGemFinderData[0], currentLevelGemFinderData[1].to_bytes(4, "little"), "MainRAM")]
+                elif not self.gemFinder and currentLevelGemFinderLine != currentLevelGemFinderData[2]:
+                    sparxWrites += [(currentLevelGemFinderData[0], currentLevelGemFinderData[2].to_bytes(4, "little"), "MainRAM")]
+                    if nearestGem != 0:
+                        sparxWrites += [(RAM.NearestGem, (0).to_bytes(4, "little"), "MainRAM")]
 
         return sparxWrites
 
