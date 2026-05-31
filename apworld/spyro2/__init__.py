@@ -56,7 +56,6 @@ class Spyro2Web(WebWorld):
             "enable_gem_checks": True,
             "enable_skillpoint_checks": True,
             "enable_life_bottle_checks": True,
-            "": "",
         },
         "Very Easy Mode": {
             "goal": "ripto",
@@ -91,6 +90,7 @@ class Spyro2Web(WebWorld):
         },
         "Speedrunner Strategies Required": {
             "trick_difficulty": "medium_tricks",
+            "moneybags_settings": "moneybagssanity",
         },
         "Open World with Level Locks": {
             "enable_open_world": True,
