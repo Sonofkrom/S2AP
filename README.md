@@ -176,18 +176,15 @@ The following commands (starting with a / for BizHawk and an ! for Duckstation) 
 
 ## Known Issues and Tentative Roadmap
 
-As of v2.0.0, 24 Apr 2026:
+As of v2.1.0, 4 Jun 2026:
 ### Known Issues
-- Sharks in Aquaria Towers do not trigger Death Link.
 - During Gemsanity, loading into an existing save may release some gem% checks incorrectly, based on what you've collected rather than received.
-- Connecting to the client in a homeworld may warp Spyro or unlock doors based on your vanilla completion, not what you have received. This is fixed if using the game patch.
 - Starting with Moneybags Unlocks when Moneybagssanity is vanilla will give you extra gems after beating Ripto.
 - If your YAML file allows Archipelago to randomly pick settings, Universal Tracker may not track correctly.
 
 Please report in the Spyro 2 thread of the Archipelago Discord, or here on GitHub, if you encounter any unexpected behavior!
 
 ### Current Roadmap:
-- Sparx powerups as items (extended range, always point to nearest gem, extra hit point cheat code)
 - Add locks around powerups
 - Implement Entrance Randomizer
 - Support PAL and NTSC-J

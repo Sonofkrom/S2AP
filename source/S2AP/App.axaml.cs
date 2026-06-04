@@ -39,8 +39,8 @@ namespace S2AP;
 public partial class App : Application
 {
     // TODO: Remember to set this in S2AP.Desktop as well.
-    public static string Version = "2.0.1";
-    public static List<string> SupportedVersions = ["1.2.0-rc", "1.2.0", "2.0.0-rc", "2.0.0", "2.0.1"];
+    public static string Version = "2.1.0";
+    public static List<string> SupportedVersions = ["2.0.1", "2.1.0"];
 
     public static MainWindowViewModel Context;
     public static ArchipelagoClient Client { get; set; }

@@ -116,7 +116,7 @@ class Spyro2World(World):
     # Effectively, minimum version of AP required.
     required_client_version = (0, 6, 1)
     # TODO: Remember to update this!
-    ap_world_version = "2.0.1"
+    ap_world_version = "2.1.0"
     item_name_to_id = Spyro2Item.get_name_to_id()
     location_name_to_id = Spyro2Location.get_name_to_id()
     item_name_groups = item_name_groups
