@@ -47,6 +47,7 @@ class WTWarpOptions:
     VANILLA = 0
     DOOR = 1
     WALL_ORB = 2
+    ALWAYS = 3
 
 class AbilityOptions:
     VANILLA = 0
@@ -80,6 +81,13 @@ class RandomizeGemColorOptions:
     SHUFFLE = 1
     RANDOM = 2
     TRUE_RANDOM = 3
+
+class MusicsanityOptions:
+    OFF = 0
+    LIKE_WITH_LIKE_NO_MINIGAMES = 1
+    LIKE_WITH_LIKE = 2
+    FULL_NO_MINIGAMES = 3
+    FULL = 4
 
 
 class GoalOption(Choice):
@@ -175,18 +183,32 @@ class StartWithWarps(Toggle):
 
 class WTWarpOption(Choice):
     """When warping to Winter Tundra from outside Crush or Gulp,
-    reroutes the warp to inside the castle. No logic is changed.
+    reroutes the warp to inside the castle. Logically grants access
+    to inner Winter Tundra.
     Represents planned vanilla functionality that was cut.
     Vanilla: Warps always go to outside the castle.
     Door: Warps inside the castle if you have unlocked the
         door with headbash.
     Wall Orb: Warps inside the castle if you have the WT wall orb.
+    Always: Warps always go to inside the castle. Logic will expect
+        homeworld navigation via Winter Tundra's castle warp.
     """
     display_name = "Winter Tundra Inner Warp"
     default = WTWarpOptions.VANILLA
     option_vanilla = WTWarpOptions.VANILLA
     option_door = WTWarpOptions.DOOR
     option_wall_orb = WTWarpOptions.WALL_ORB
+    option_always = WTWarpOptions.ALWAYS
+
+class ProfessorDoor(Toggle):
+    """Automatically open the Professor's door in Autumn Plains,
+    which normally requires 8 orbs (normally bypassable with tricks).
+    This door also affects the behavior of the warp from Crush to
+    Autumn Plains. When the door is open, this warp will bring you
+    next to Gulp, allowing you to skip needing climb to access the second
+    half of Autumn Plains. This option is intended for use with
+    open world with open world warps, but can be used without."""
+    display_name = "Open Professor's Door"
 
 class Enable25PctGemChecksOption(Toggle):
     """Adds checks for getting 25% of the gems in a level"""
@@ -278,7 +300,7 @@ class GemsanityGemBundleSize(Choice):
      """Define the amount of gems awarded by each Gem Bundle item.
      Determines how many items are added to the item pool.
      Determines how many gem locations are randomly selected if
-         Gemsanity is set to Partial (sdds one location per bundle item).
+         Gemsanity is set to Partial (adds one location per bundle item).
      WARNING: Selecting an option smaller than 25 requires the host to
          edit allow_full_gemsanity in their yaml file.
      Default (50):adds 8 Gem Bundles per Level to the Item Pool (168 Total)
@@ -367,6 +389,10 @@ class EnableTrapInvisible(Toggle):
     Duckstation must be run in Interpreter mode for this to have any effect."""
     display_name = "Enable Invisibility Trap"
 
+class EnableTrapLazySparx(Toggle):
+    """Adds making Sparx refuse to pick up gems for 30 seconds to the item pool."""
+    display_name = "Enable Lazy Sparx Trap"
+
 class EnableTrapRemappedController(Toggle):
     """Allows filler items to "remap" your controller briefly.
     Duckstation must be run in Interpreter mode for this to have any effect."""
@@ -428,6 +454,36 @@ class FireballAbility(Choice):
     option_in_pool = AbilityOptions.IN_POOL
     option_off = AbilityOptions.OFF
     option_start_with = AbilityOptions.START_WITH
+
+class SparxGemFinderAbility(Choice):
+    """Settings for Sparx's gem finder ability.
+    Vanilla - Holding L1+R1+R2 has Sparx point to the nearest gem.
+        Beating Ripto makes the effect permanent.
+    In Pool - Adds Sparx Gem Finder to the item pool.
+        Behaves like Vanilla once you find the item.
+    Off - Removes the ability for Sparx to point to gems."""
+    display_name = "Sparx Gem Finder"
+    default = AbilityOptions.VANILLA
+    option_vanilla = AbilityOptions.VANILLA
+    option_in_pool = AbilityOptions.IN_POOL
+    option_off = AbilityOptions.OFF
+
+class ExtendedSparxRangeAbility(Choice):
+    """Settings for Extended Sparx range.
+    Vanilla - Beating Ripto doubles Sparx's range.
+    In Pool - Adds Extended Sparx Range to the item pool.
+        This item doubles Sparx's range.
+        Beating Ripto has no effect on your range."""
+    display_name = "Extended Sparx Range"
+    default = AbilityOptions.VANILLA
+    option_vanilla = AbilityOptions.VANILLA
+    option_in_pool = AbilityOptions.IN_POOL
+
+class ExtraHitPoint(Toggle):
+    """Adds an extra hit point (equivalent to the in game cheat code)
+    to the item pool. This does not affect progressive health logic.
+    Has no effect when Progressive Sparx Health Upgrades are True Sparxless."""
+    display_name = "Extra Hit Point in Item Pool"
 
 class TrickDifficulty(Choice):
     """Determines which tricks, if any, are in logic.
@@ -555,6 +611,26 @@ class GemColor(Choice):
     option_random_choice = RandomizeGemColorOptions.RANDOM
     option_true_random = RandomizeGemColorOptions.TRUE_RANDOM
 
+class Musicsanity(Choice):
+    """Shuffles most of the music in game.
+    Off: No changes.
+    Like With Like: Music is shuffled within its type:
+        Homeworld, Normal Level, Boss.
+    Full: Music is shuffled regardless of type.
+    """
+    display_name = "Musicsanity"
+    default = MusicsanityOptions.OFF
+    option_off = MusicsanityOptions.OFF
+    option_like_with_like = MusicsanityOptions.LIKE_WITH_LIKE
+    option_full = MusicsanityOptions.FULL
+
+class StreamerMusic(Toggle):
+    """Streaming platforms sometimes mute VODs with the Autumn Plains
+    or Winter Tundrea homeworld music.
+    Replaces these with Summer Forest.
+    """
+    display_name = "Streamer-Friendly Music"
+
 @dataclass
 class Spyro2Option(PerGameCommonOptions):
     goal: GoalOption
@@ -568,6 +644,7 @@ class Spyro2Option(PerGameCommonOptions):
     open_world_warp_unlocks: StartWithWarps
     start_with_abilities: StartWithAbilities
     wt_warp_options: WTWarpOption
+    open_professor_door: ProfessorDoor
     level_lock_options: LevelLockOption
     level_unlocks: StartingLevelCount
     enable_25_pct_gem_checks: Enable25PctGemChecksOption
@@ -594,10 +671,14 @@ class Spyro2Option(PerGameCommonOptions):
     enable_trap_damage_sparx: EnableTrapDamageSparx
     enable_trap_sparxless: EnableTrapSparxless
     enable_trap_invisibility: EnableTrapInvisible
+    enable_trap_lazy_sparx: EnableTrapLazySparx
     enable_progressive_sparx_health: EnableProgressiveSparxHealth
     enable_progressive_sparx_logic: ProgressiveSparxHealthLogic
     double_jump_ability: DoubleJumpAbility
     permanent_fireball_ability: FireballAbility
+    sparx_gem_finder: SparxGemFinderAbility
+    extended_sparx_range: ExtendedSparxRangeAbility
+    extra_hit_point: ExtraHitPoint
     trick_difficulty: TrickDifficulty
     custom_tricks: CustomTricks
     colossus_starting_goals: ColossusStartingGoals
@@ -613,6 +694,8 @@ class Spyro2Option(PerGameCommonOptions):
     easy_gulp: EasyGulp
     portal_gem_collection_color: PortalAndGemCollectionColor
     gem_color: GemColor
+    musicsanity: Musicsanity
+    streamer_music: StreamerMusic
 
 
 # Group logic/trick options together, especially for the local WebHost.
@@ -647,6 +730,7 @@ spyro_options_groups = [
             RiptoDoorOrbs,
             MoneybagsSettings,
             WTWarpOption,
+            ProfessorDoor,
             # PowerupLockSettings,
         ],
         False
@@ -664,7 +748,8 @@ spyro_options_groups = [
             TrapFillerPercent,
             EnableTrapDamageSparx,
             EnableTrapSparxless,
-            EnableTrapInvisible
+            EnableTrapInvisible,
+            EnableTrapLazySparx
         ],
         True
     ),
@@ -672,7 +757,10 @@ spyro_options_groups = [
         "Sparx Settings",
         [
             EnableProgressiveSparxHealth,
-            ProgressiveSparxHealthLogic
+            ProgressiveSparxHealthLogic,
+            SparxGemFinderAbility,
+            ExtendedSparxRangeAbility,
+            ExtraHitPoint
         ],
         True
     ),
@@ -699,7 +787,9 @@ spyro_options_groups = [
         "Cosmetics",
         [
             PortalAndGemCollectionColor,
-            GemColor
+            GemColor,
+            Musicsanity,
+            StreamerMusic
         ],
         True
     ),

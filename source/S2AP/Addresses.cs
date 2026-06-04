@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using static S2AP.Models.Enums;
+
 
 namespace S2AP
 {
@@ -152,6 +154,7 @@ namespace S2AP
         public const uint localGemLoadFixAddress = 0x00076B98;
         public const uint globalGemLoadFixAddress = 0x00076BA0;
         public const uint playBeepAddress = 0x5429c;
+        public const uint gemPopupAddress = 0x39734;
 
         public const uint SummerPortalBlock = 0x000e2d34;
         public const uint AutumnPortalBlock = 0x000f5330;
@@ -250,6 +253,42 @@ namespace S2AP
         public static uint ShadyHeadbashCheck = 0x7d6c0;
         public static uint GulpDoubleDamage = 0x120c5e;
 
+        public static uint SparxHorizontalRange = 0x61a90;
+        public static uint SparxVerticalRange = 0x61a98;
+        // List is formatted as [ addressToChange, hasAbilityCode, lacksAbilityCode ].
+        // hasAbilityCode is always lw v1, -0x7c60(v1)
+        // lacksAbilityCode is an unconditional jump to the block of code after the gem finder ability code.
+        public static readonly Dictionary<LevelInGameIDs, List<uint>> SparxGemFinderLookup = new Dictionary<LevelInGameIDs, List<uint>>()
+        {
+            { LevelInGameIDs.SummerForest, [0x72308, 0x8c6383a0, 0x0801c919] },
+            { LevelInGameIDs.Glimmer, [0x72794, 0x8c6383a0, 0x0801ca3c] },
+            { LevelInGameIDs.IdolSprings, [0x735f8, 0x8c6383a0, 0x0801cdd5] },
+            { LevelInGameIDs.Colossus, [0x72824, 0x8c6383a0, 0x0801ca60] },
+            { LevelInGameIDs.Hurricos, [0x72034, 0x8c6383a0, 0x0801c863] },
+            { LevelInGameIDs.AquariaTowers, [0x72f8c, 0x8c6383a0, 0x0801cc36] },
+            { LevelInGameIDs.SunnyBeach, [0x73b54, 0x8c6383a0, 0x0801cf2b] },
+            { LevelInGameIDs.AutumnPlains, [0x72668, 0x8c6383a0, 0x0801c9f1] },
+            { LevelInGameIDs.SkelosBadlands, [0x71868, 0x8c6383a0, 0x0801c670] },
+            { LevelInGameIDs.CrystalGlacier, [0x72630, 0x8c6383a0, 0x0801c9e2] },
+            { LevelInGameIDs.BreezeHarbor, [0x73c4c, 0x8c6383a0, 0x0801cf69] },
+            { LevelInGameIDs.Zephyr, [0x72110, 0x8c6383a0, 0x0801c89a] },
+            { LevelInGameIDs.Scorch, [0x71d68, 0x8c6383a0, 0x0801c7b0] },
+            { LevelInGameIDs.ShadyOasis, [0x721f4, 0x8c6383a0, 0x0801c8d3] },
+            { LevelInGameIDs.MagmaCone, [0x738e0, 0x8c6383a0, 0x0801ce8e] },
+            { LevelInGameIDs.FractureHills, [0x758c4, 0x8c6383a0, 0x0801d688] },
+            { LevelInGameIDs.WinterTundra, [0x725d8, 0x8c6383a0, 0x0801c9cd] },
+            { LevelInGameIDs.MysticMarsh, [0x7366c, 0x8c6383a0, 0x0801cdf2] },
+            { LevelInGameIDs.CloudTemples, [0x70e48, 0x8c6383a0, 0x0801c3e8] },
+            { LevelInGameIDs.RoboticaFarms, [0x7277c, 0x8c6383a0, 0x0801ca35] },
+            { LevelInGameIDs.Metropolis, [0x73eb8, 0x8c6383a0, 0x0801d005] },
+        };
+        public static uint NearestGem = 0x61ab0;
+        public static uint MaxHealth = 0x61a8c;
+
+        public static uint AquariaSharkDeathJAL = 0x788e8;
+        public static uint AquariaSharkDeathlink = 0x84788;
+        public static uint AquariaSharkDeathlinkCode = 0x84790;
+
         public const uint GuidebookText = 0x00010308;
 
         public const uint AnalogReadAddressOne = 0x12320;
@@ -257,11 +296,17 @@ namespace S2AP
         public const uint ControllerReadLeftHalf = 0x122fc;
         public const uint ControllerReadRightHalf = 0x12304;
 
+        public const uint APDoorAddress = 0x64702;
         public const uint WTWallOrbAddress = 0x69fe5;
         public const int WTWallOrbBit = 0;
         public const uint WTDoorGemAddress = 0x6af25;
         public const int WTDoorGemBit = 7;
         public const uint WTWarpAddress = 0x6470a;
+
+        public const uint MainLevelMusicArray = 0x60140;
+        public const uint FullMusicArray = 0x64de4;
+        public const uint CurrentMusicData = 0x68320;
+        public const uint CurrentMusicStatus = 0x682f4;
 
         // ROM patching
         public const uint RomDialogueOrbCount = 0x3ec0c;

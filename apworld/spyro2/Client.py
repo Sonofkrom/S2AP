@@ -246,7 +246,7 @@ class Spyro2Client(BizHawkClient):
 
     apworld_manifest = orjson.loads(pkgutil.get_data(__name__, "archipelago.json").decode("utf-8"))
     client_version = apworld_manifest["world_version"]
-    supported_versions = ["2.0.0", "2.0.0-rc"]
+    supported_versions = ["2.0.1", "2.1.0"]
 
     boolsyncprogress = False
     syncWaitConfirm = False
@@ -281,6 +281,7 @@ class Spyro2Client(BizHawkClient):
         self.isDestructive = False
         self.destructiveEnd = 0
         self.maxHealth = 3
+        self.extraHitPoint = 0
         self.currentLevel = None
         self.currentOrbs = 0
         self.currentGems = 0
@@ -289,6 +290,9 @@ class Spyro2Client(BizHawkClient):
         self.currentAPTalismans = 0
         self.currentTokens = 0
         self.currentSkillPoints = 0
+        self.lazySparxEnd = 0
+        self.extendedRange = False
+        self.gemFinder = False
 
     def initialize_client(self):
         self.messagequeue = []
@@ -315,6 +319,7 @@ class Spyro2Client(BizHawkClient):
         self.isDestructive = False
         self.destructiveEnd = 0
         self.maxHealth = 3
+        self.extraHitPoint = 0
         self.currentLevel = None
         self.currentOrbs = 0
         self.currentGems = 0
@@ -323,6 +328,9 @@ class Spyro2Client(BizHawkClient):
         self.currentAPTalismans = 0
         self.currentTokens = 0
         self.currentSkillPoints = 0
+        self.lazySparxEnd = 0
+        self.extendedRange = False
+        self.gemFinder = False
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         s2_identifier_ram_address: int = 0x9244
@@ -544,7 +552,12 @@ class Spyro2Client(BizHawkClient):
                 startingHealth = 1
             elif sparxOption != SparxUpgradeOptions.OFF:
                 startingHealth = 0
-            self.maxHealth = startingHealth
+            if sparxOption != SparxUpgradeOptions.TRUE_SPARXLESS:
+                # Ensure behavior matches the cheat code, and avoid rendering issues
+                # from more max health than intended.
+                if self.extraHitPoint > 1:
+                    self.extraHitPoint = 1
+            self.maxHealth = startingHealth + self.extraHitPoint
         try:
             if self.gotDatastorage:
                 # Last init to write the status
@@ -584,11 +597,16 @@ class Spyro2Client(BizHawkClient):
                 "collectiblesMask": (RAM.GemMaskAddress, 0x0006b000 - 0x0006ac84, "MainRAM"),
                 "lifeCount": (RAM.PlayerLives, 2, "MainRAM"),
                 "sparxHealth": (RAM.PlayerHealth, 1, "MainRAM"),
+                "maxHealth": (RAM.MaxHealth, 1, "MainRAM"),
+                "horizontalRange": (RAM.SparxHorizontalRange, 4, "MainRAM"),
+                "verticalRange": (RAM.SparxVerticalRange, 4, "MainRAM"),
+                "nearestGem": (RAM.NearestGem, 4, "MainRAM"),
                 "localGemIncrement": (RAM.localGemIncrementAddress, 4, "MainRAM"),
                 "globalGemIncrement": (RAM.globalGemIncrementAddress, 4, "MainRAM"),
                 "globalGemRespawnFix": (RAM.globalGemRespawnFixAddress, 4, "MainRAM"),
                 "localGemRespawnFix": (RAM.localGemRespawnFixAddress, 4, "MainRAM"),
                 "playBeep": (RAM.playBeepAddress, 4, "MainRAM"),
+                "gemPopup": (RAM.gemPopupAddress, 4, "MainRAM"),
                 "doubleJumpLine1": (RAM.DoubleJumpAddress1, 4, "MainRAM"),
                 "doubleJumpLine2": (RAM.DoubleJumpAddress2, 4, "MainRAM"),
                 "permanentFireball": (RAM.PermanentFireballAddress, 1, "MainRAM"),
@@ -631,6 +649,7 @@ class Spyro2Client(BizHawkClient):
                 "wtWarpReroute": (RAM.WTWarpAddress, 2, "MainRAM"),
                 "wtDoorGem": (RAM.WTDoorGemAddress, 1, "MainRAM"),
                 "wtWallOrb": (RAM.WTWallOrbAddress, 1, "MainRAM"),
+                "professorDoorUnlock": (RAM.ProfessorDoorAddress, 2, "MainRAM"),
                 "invisibleAddress1": (RAM.InvisibleAddress1, 2, "MainRAM"),
                 "invisibleAddress2": (RAM.InvisibleAddress2, 2, "MainRAM"),
                 "destructiveAddress": (RAM.DestructiveSpyroAddress, 2, "MainRAM"),
@@ -638,6 +657,11 @@ class Spyro2Client(BizHawkClient):
                 "animationLength": (RAM.PlayerAnimationLength, 4, "MainRAM"),
                 "spyroState": (RAM.SpyroStateAddress, 1, "MainRAM"),
                 "spyroVelocityFlag": (RAM.PlayerVelocityStatus, 1, "MainRAM"),
+                "mainLevelSongs": (RAM.MainLevelMusicArray, 29, "MainRAM"),
+                "fullMusicArray": (RAM.FullMusicArray, 8 * 39, "MainRAM"),
+                "currentMusicData": (RAM.CurrentMusicData, 16, "MainRAM"),
+                "aquariaSharkDeathlinkCode": (RAM.AquariaSharkDeathlinkCode, 4, "MainRAM"),
+                "sharkDeathlinkValue": (RAM.AquariaSharkDeathlink, 4, "MainRAM"),
             }
 
             readTuples = [Value for Value in readsDict.values()]
@@ -669,11 +693,16 @@ class Spyro2Client(BizHawkClient):
             collectiblesMask = readValues["collectiblesMask"]
             lifeCount = readValues["lifeCount"]
             sparxHealth = readValues["sparxHealth"]
+            maxHealth = readValues["maxHealth"]
+            horizontalRange = readValues["horizontalRange"]
+            verticalRange = readValues["verticalRange"]
+            nearestGem = readValues["nearestGem"]
             localGemIncrement = readValues["localGemIncrement"]
             globalGemIncrement = readValues["globalGemIncrement"]
             globalGemRespawnFix = readValues["globalGemRespawnFix"]
             localGemRespawnFix = readValues["localGemRespawnFix"]
             playBeep = readValues["playBeep"]
+            gemPopup = readValues["gemPopup"]
             doubleJumpLine1 = readValues["doubleJumpLine1"]
             doubleJumpLine2 = readValues["doubleJumpLine2"]
             permanentFireball = readValues["permanentFireball"]
@@ -716,6 +745,7 @@ class Spyro2Client(BizHawkClient):
             wtWarpReroute = readValues["wtWarpReroute"]
             wtDoorGem = readValues["wtDoorGem"]
             wtWallOrb = readValues["wtWallOrb"]
+            professorDoorUnlock = readValues["professorDoorUnlock"]
             invisibleAddress1 = readValues["invisibleAddress1"]
             invisibleAddress2 = readValues["invisibleAddress2"]
             destructiveAddress = readValues["destructiveAddress"]
@@ -723,6 +753,11 @@ class Spyro2Client(BizHawkClient):
             animationLength = readValues["animationLength"]
             spyroState = readValues["spyroState"]
             spyroVelocityFlag = readValues["spyroVelocityFlag"]
+            mainLevelSongs = readValues["mainLevelSongs"]
+            fullMusicArray = readValues["fullMusicArray"]
+            currentMusicData = readValues["currentMusicData"]
+            aquariaSharkDeathlinkCode = readValues["aquariaSharkDeathlinkCode"]
+            sharkDeathlinkValue = readValues["sharkDeathlinkValue"]
 
             # Write tables
             itemsWrites = []
@@ -789,6 +824,12 @@ class Spyro2Client(BizHawkClient):
                         self.unlockedLevels.add(itemName)
                     elif itemName == "Progressive Sparx Health Upgrade":
                         sparxUpgrades += 1
+                    elif itemName == "Extra Hit Point":
+                        self.extraHitPoint = 1
+                    elif itemName == "Extended Sparx Range":
+                        self.extendedRange = True
+                    elif itemName == "Sparx Gem Finder":
+                        self.gemFinder = True
                     if increment < START_recv_index:
                         increment += 1
                     else:
@@ -814,6 +855,12 @@ class Spyro2Client(BizHawkClient):
                             else:
                                 self.destructiveEnd = time.time() + 15
                                 self.isDestructive = True
+                        elif itemName == "Lazy Sparx Trap":
+                            currentTime = time.time()
+                            if self.lazySparxEnd > currentTime:
+                                self.lazySparxEnd += 30
+                            else:
+                                self.lazySparxEnd = currentTime + 30
                         recv_index += 1
 
                 # Writes to memory if there is a new item, after the loop
@@ -853,7 +900,12 @@ class Spyro2Client(BizHawkClient):
                     startingHealth = 1
                 elif sparxOption != SparxUpgradeOptions.OFF:
                     startingHealth = 0
-                self.maxHealth = startingHealth + sparxUpgrades
+                if sparxOption != SparxUpgradeOptions.TRUE_SPARXLESS:
+                    # Ensure behavior matches the cheat code, and avoid rendering issues
+                    # from more max health than intended.
+                    if self.extraHitPoint > 1:
+                        self.extraHitPoint = 1
+                self.maxHealth = startingHealth + sparxUpgrades + self.extraHitPoint
 
                 if ctx.slot_data["options"]["enable_gemsanity"]:
                     itemsWrites += self.calculateCurrentGems(ctx, gemsanityItems, currentGems, totalGems)
@@ -913,10 +965,10 @@ class Spyro2Client(BizHawkClient):
                 ]
                 await self.locations_handling(ctx, Locations_Reads)
 
-            if not boolIsFirstBoot and gameStatus not in [GameStatus.Paused, GameStatus.LoadingWorld]:
+            if not boolIsFirstBoot and gameStatus not in [GameStatus.Paused, GameStatus.LoadingWorld, GameStatus.Cutscene]:
                 # ======== Gemsanity Code Handling ========
                 if ctx.slot_data["options"]["enable_gemsanity"]:
-                    gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep]
+                    gemsanity_reads = [localGemIncrement, globalGemIncrement, globalGemRespawnFix, localGemRespawnFix, playBeep, gemPopup]
                     gemsanityWrites = self.handleGemsanity(gemsanity_reads)
                     if len(gemsanityWrites) > 0:
                         await bizhawk.write(ctx.bizhawk_ctx, gemsanityWrites)
@@ -977,6 +1029,17 @@ class Spyro2Client(BizHawkClient):
                 if len(colorChangeWrites) > 0:
                     await bizhawk.write(ctx.bizhawk_ctx, colorChangeWrites)
 
+                # ======== Musicsanity Handling ========
+                musicChangeReads = [
+                    currentLevel,
+                    mainLevelSongs,
+                    fullMusicArray,
+                    currentMusicData
+                ]
+                musicChangeWrites = self.handleMusicChanges(ctx, musicChangeReads)
+                if len(musicChangeWrites) > 0:
+                    await bizhawk.write(ctx.bizhawk_ctx, musicChangeWrites)
+
                 # ======== Elora Text and Door Requirements ========
                 # Menuing out of Winter Tundra crashes the game on save file load,
                 # since the level ID doesn't change.
@@ -986,11 +1049,26 @@ class Spyro2Client(BizHawkClient):
                     if len(eloraDoorWrites) > 0:
                         await bizhawk.write(ctx.bizhawk_ctx, eloraDoorWrites)
 
+                # ======== Aquaria Shark Deathlink Handling ========
+                sharkDeathlinkReads = [
+                    currentLevel,
+                    aquariaSharkDeathlinkCode
+                ]
+                sharkDeathlinkWrites = self.handleAquariaSharkDeathlink(sharkDeathlinkReads)
+                if len(sharkDeathlinkWrites) > 0:
+                    await bizhawk.write(ctx.bizhawk_ctx, sharkDeathlinkWrites)
+
                 # ======== Open World Handling ========
                 openWorldReads = [crushGuidebookUnlock, gulpGuidebookUnlock, autumnGuidebookUnlock, winterGuidebookUnlock]
                 openWorldWrites = self.handleOpenWorldChanges(ctx, openWorldReads)
                 if len(openWorldWrites) > 0:
                     await bizhawk.write(ctx.bizhawk_ctx, openWorldWrites)
+
+                # =======  Professor's Door Handling ========
+                professorDoorReads = [professorDoorUnlock]
+                professorDoorWrites = self.handleProfessorDoorChanges(ctx, professorDoorReads)
+                if len(professorDoorWrites) > 0:
+                    await bizhawk.write(ctx.bizhawk_ctx, professorDoorWrites)
 
                 # ======== Level Lock Handling ========
                 levelLockReads = [currentLevel]
@@ -1017,8 +1095,30 @@ class Spyro2Client(BizHawkClient):
                     await bizhawk.write(ctx.bizhawk_ctx, destructiveWrites)
 
                 # ======== Sparx Health Handling ========
-                sparxReads = [sparxHealth]
-                sparxWrites = self.handleSparxChanges(sparxReads)
+                currentLevelGemFinderLine = None
+                currentLevelGemFinderData = None
+                if ctx.slot_data["options"]["sparx_gem_finder"] and currentLevel in RAM.SparxGemFinderLookup.keys():
+                    readsDict = {
+                        "currentLevelGemFinderLine": (RAM.SparxGemFinderLookup[currentLevel][0], 4, "MainRAM"),
+                    }
+                    readTuples = [Value for Value in readsDict.values()]
+
+                    reads = await bizhawk.read(ctx.bizhawk_ctx, readTuples)
+                    reads = [int.from_bytes(reads[i], byteorder="little") for i, x in enumerate(reads)]
+                    readValues = dict(zip(readsDict.keys(), reads))
+                    currentLevelGemFinderLine = readValues["currentLevelGemFinderLine"]
+                    currentLevelGemFinderData = RAM.SparxGemFinderLookup[currentLevel]
+
+                sparxReads = [
+                    sparxHealth,
+                    maxHealth,
+                    horizontalRange,
+                    verticalRange,
+                    currentLevelGemFinderLine,
+                    currentLevelGemFinderData,
+                    nearestGem
+                ]
+                sparxWrites = self.handleSparxChanges(ctx, sparxReads)
                 if len(sparxWrites) > 0:
                     await bizhawk.write(ctx.bizhawk_ctx, sparxWrites)
 
@@ -1030,7 +1130,8 @@ class Spyro2Client(BizHawkClient):
                     zPos,
                     animationLength,
                     spyroVelocityFlag,
-                    spyroState
+                    spyroState,
+                    sharkDeathlinkValue
                 ]
                 await self.handle_death_link(ctx, DL_Reads)
 
@@ -1146,9 +1247,8 @@ class Spyro2Client(BizHawkClient):
             if level.Name == "Dragon Shores":
                 for i in range(10):
                     id = base_id + level_offset * level.LevelId + i
-                    if ctx.slot_data["options"]["goal"] == GoalOptions.TEN_TOKENS:
-                        if shores_tokens[4 * i] != 0 and id not in self.locations_list:
-                            tokensToSend.add(id)
+                    if shores_tokens[4 * i] != 0 and id not in self.locations_list:
+                        tokensToSend.add(id)
                     location_offset += 1
             level_index += 1
 
@@ -1284,6 +1384,7 @@ class Spyro2Client(BizHawkClient):
         globalGemRespawnFix = gemsanity_reads[2]
         localGemRespawnFix = gemsanity_reads[3]
         playBeep = gemsanity_reads[4]
+        gemPopup = gemsanity_reads[5]
         gemsanity_writes = []
 
         # Disable updating local and global gem counts on collecting a gem, loading into a level, and respawning.
@@ -1297,6 +1398,8 @@ class Spyro2Client(BizHawkClient):
             gemsanity_writes += [(RAM.localGemRespawnFixAddress, (0).to_bytes(4, "little"), "MainRAM")]
         if playBeep != 0:
             gemsanity_writes += [(RAM.playBeepAddress, (0).to_bytes(4, "little"), "MainRAM")]
+        if gemPopup == 0x14620012:   # bne v1,v0,0x80039780
+            gemsanity_writes += [(RAM.gemPopupAddress, (0x0800e5e0).to_bytes(4, "little"), "MainRAM")]  # j 0x80039780
 
         return gemsanity_writes
 
@@ -1580,6 +1683,37 @@ class Spyro2Client(BizHawkClient):
                 colorChangeWrites += [(RAM.PortalTextBlue, (0).to_bytes(1, "little"), "MainRAM")]
         return colorChangeWrites
 
+    def handleMusicChanges(self, ctx, musicChangeReads):
+        current_level = musicChangeReads[0]
+        main_level_songs = musicChangeReads[1].to_bytes(29, "little")
+        full_music_array = musicChangeReads[2].to_bytes(8 * 39, "little")
+        current_music_data = musicChangeReads[3].to_bytes(16, "little")
+
+        musicChangeWrites = []
+
+        music_changes = ctx.slot_data["options"]["main_level_music_array_changes"]
+        music_values_changed = False
+        for levelID in music_changes.keys():
+            song = int.from_bytes([main_level_songs[int(levelID)]], "little")
+            if song != music_changes[levelID]:
+                musicChangeWrites += [(RAM.MainLevelMusicArray + int(levelID), music_changes[levelID].to_bytes(1, "little"), "MainRAM")]
+                music_values_changed = True
+        if music_values_changed:
+            if str(current_level) in music_changes.keys():
+                new_song_id = int(music_changes[str(current_level)])
+                current_level_song_start_offset = 0x15f90 + int.from_bytes(full_music_array[8 * new_song_id:8 * new_song_id + 4], "little", signed=False)
+                current_level_song_timestamp = int.from_bytes(current_music_data[4:8], "little", signed=False)
+                current_level_song_length = int.from_bytes(full_music_array[4 + 8 * new_song_id:6 + 8 * new_song_id], "little", signed=False)
+                current_level_song_channel = int.from_bytes(full_music_array[6 + 8 * new_song_id: 8 + 8 * new_song_id], "little", signed=False)
+                musicChangeWrites += [(RAM.CurrentMusicData, current_level_song_start_offset.to_bytes(4, "little"), "MainRAM")]
+                if current_level_song_timestamp < current_level_song_start_offset or current_level_song_start_offset + 60 > current_level_song_start_offset + current_level_song_length:
+                    musicChangeWrites += [(RAM.CurrentMusicData + 4, current_level_song_start_offset.to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicData + 8, (current_level_song_start_offset + current_level_song_length).to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicData + 12, current_level_song_channel.to_bytes(4, "little"), "MainRAM")]
+                musicChangeWrites += [(RAM.CurrentMusicStatus, (1).to_bytes(1, "little"), "MainRAM")]
+
+        return musicChangeWrites
+
     def handleEloraDoorChanges(self, ctx, eloraDoorReads):
         currentLevel = eloraDoorReads[0]
         riptoDoorOrbRequirement = eloraDoorReads[1]
@@ -1610,6 +1744,30 @@ class Spyro2Client(BizHawkClient):
         # }
         return eloraDoorWrites
 
+    def handleAquariaSharkDeathlink(self, aquariaSharkWrites):
+        currentLevel = aquariaSharkWrites[0]
+        deathlinkWriteLine = aquariaSharkWrites[1]
+
+        sharkDeathlinkWrites = []
+
+        if currentLevel == LevelInGameIDs.AquariaTowers and deathlinkWriteLine != 0x24020001:
+            # Take an empty block of space and use it for DeathLink handling code for sharks.
+            # This block sets Addresses.AquariaSharkDeathlink to 1 if the sharks kill Spyro, then calls normal OnDeath code.
+            sharkDeathlinkWrites += [
+                (RAM.AquariaSharkDeathlinkCode, 0x24020001.to_bytes(4, "little"), "MainRAM"),      # li v0, 0x1
+                (RAM.AquariaSharkDeathlinkCode + 4, 0x3c018008.to_bytes(4, "little"), "MainRAM"),  # lui at, 0x8008
+                (RAM.AquariaSharkDeathlinkCode + 8, 0xac224788.to_bytes(4, "little"), "MainRAM"),  # sw v0, 0x4788(at)
+                (RAM.AquariaSharkDeathlinkCode + 12, 0x0.to_bytes(4, "little"), "MainRAM"),        # nop
+                (RAM.AquariaSharkDeathlinkCode + 16, 0x0c00cb9d.to_bytes(4, "little"), "MainRAM"), # jal OnDeath (0x80032e74)
+                (RAM.AquariaSharkDeathlinkCode + 20, 0x0.to_bytes(4, "little"), "MainRAM"),        # nop
+                (RAM.AquariaSharkDeathlinkCode + 24, 0x0801e23c.to_bytes(4, "little"), "MainRAM"), # j 0x800788f0 (AquariaSharkDeathJAL + 8)
+                (RAM.AquariaSharkDeathJAL + 28, 0x0.to_bytes(4, "little"), "MainRAM"),             # nop
+
+                (RAM.AquariaSharkDeathJAL, 0x080211e4.to_bytes(4, "little"), "MainRAM"),           # j 0x80084790 (AquariaSharkDeathlinkCode)
+            ]
+        return sharkDeathlinkWrites
+
+
     def handleOpenWorldChanges(self, ctx, openWorldReads):
         crushGuidebookUnlock = openWorldReads[0]
         gulpGuidebookUnlock = openWorldReads[1]
@@ -1632,6 +1790,13 @@ class Spyro2Client(BizHawkClient):
                 if winterGuidebookUnlock != 1:
                     openWorldWrites += [(RAM.WinterGuidebookUnlock, (1).to_bytes(1, "little"), "MainRAM")]
         return openWorldWrites
+
+    def handleProfessorDoorChanges(self, ctx, professorDoorReads):
+        professorDoorUnlock = professorDoorReads[0]
+        professor_door_writes = []
+        if ctx.slot_data["options"]["open_professor_door"] and professorDoorUnlock != 1:
+            professor_door_writes += [(RAM.ProfessorDoorAddress, (1).to_bytes(2, "little"), "MainRAM")]
+        return professor_door_writes
 
     def handleLevelLockChanges(self, ctx, levelLockReads):
         currentLevel = levelLockReads[0]
@@ -1745,10 +1910,12 @@ class Spyro2Client(BizHawkClient):
             gemBit = pow(2, RAM.WTDoorGemBit)
             if wtDoorGem & gemBit != 0:
                 rerouteWarp = 1
-        if warpOption == WTWarpOptions.WALL_ORB:
+        elif warpOption == WTWarpOptions.WALL_ORB:
             orbBit = pow(2, RAM.WTWallOrbBit)
             if wtWallOrb & orbBit != 0:
                 rerouteWarp = 1
+        elif warpOption == WTWarpOptions.ALWAYS:
+            rerouteWarp = 1
         if wtWarpReroute != rerouteWarp:
             wtWarpWrites += [(RAM.WTWarpAddress, (rerouteWarp).to_bytes(2, "little"), "MainRAM")]
 
@@ -1796,8 +1963,14 @@ class Spyro2Client(BizHawkClient):
 
         return destructiveWrites
 
-    def handleSparxChanges(self, sparxReads):
+    def handleSparxChanges(self, ctx, sparxReads):
         sparxHealth = sparxReads[0]
+        maxHealth = sparxReads[1]
+        horizontalRange = sparxReads[2]
+        verticalRange = sparxReads[3]
+        currentLevelGemFinderLine = sparxReads[4]
+        currentLevelGemFinderData = sparxReads[5]
+        nearestGem = sparxReads[6]
         currentTimestamp = time.time()
 
         sparxWrites = []
@@ -1820,9 +1993,45 @@ class Spyro2Client(BizHawkClient):
                 i = i + 1
         if 128 > sparxHealth > self.maxHealth:
             sparxHealth = self.maxHealth
-
         if sparxHealth != sparxReads[0]:
             sparxWrites += [(RAM.PlayerHealth, sparxHealth.to_bytes(1, "little"), "MainRAM")]
+        if self.maxHealth != maxHealth:
+            sparxWrites += [(RAM.MaxHealth, self.maxHealth.to_bytes(1, "little"), "MainRAM")]
+
+        if self.lazySparxEnd > time.time():
+            if horizontalRange != 1:
+                sparxWrites += [(RAM.SparxHorizontalRange, (1).to_bytes(4, "little"), "MainRAM")]
+            if verticalRange != 1:
+                sparxWrites += [(RAM.SparxVerticalRange, (1).to_bytes(4, "little"), "MainRAM")]
+        elif ctx.slot_data["options"]["extended_sparx_range"] == AbilityOptions.IN_POOL:
+            hasExtendedRange = self.extendedRange
+            newHorizontalRange = 2062
+            newVerticalRange = 640
+            if hasExtendedRange:
+                newHorizontalRange *= 2
+                newVerticalRange *= 2
+            if self.riptoDefeated:
+                # Counteract the in-game effect that doubles these when Ripto is defeated.
+                newHorizontalRange /= 2
+                newVerticalRange /= 2
+            if horizontalRange != newHorizontalRange:
+                sparxWrites += [(RAM.SparxHorizontalRange, newHorizontalRange.to_bytes(4, "little"), "MainRAM")]
+            if verticalRange != 640:
+                sparxWrites += [(RAM.SparxVerticalRange, newVerticalRange.to_bytes(4, "little"), "MainRAM")]
+        else:
+            if horizontalRange != 2062:
+                sparxWrites += [(RAM.SparxHorizontalRange, (1).to_bytes(4, "little"), "MainRAM")]
+            if verticalRange != 640:
+                sparxWrites += [(RAM.SparxVerticalRange, (1).to_bytes(4, "little"), "MainRAM")]
+
+        if ctx.slot_data["options"]["sparx_gem_finder"] != AbilityOptions.VANILLA:
+            if currentLevelGemFinderLine != None:
+                if self.gemFinder and currentLevelGemFinderLine != currentLevelGemFinderData[1]:
+                    sparxWrites += [(currentLevelGemFinderData[0], currentLevelGemFinderData[1].to_bytes(4, "little"), "MainRAM")]
+                elif not self.gemFinder and currentLevelGemFinderLine != currentLevelGemFinderData[2]:
+                    sparxWrites += [(currentLevelGemFinderData[0], currentLevelGemFinderData[2].to_bytes(4, "little"), "MainRAM")]
+                    if nearestGem != 0:
+                        sparxWrites += [(RAM.NearestGem, (0).to_bytes(4, "little"), "MainRAM")]
 
         return sparxWrites
 
@@ -1877,6 +2086,7 @@ class Spyro2Client(BizHawkClient):
         animationLength = DL_Reads[4]
         velocityFlag = DL_Reads[5]
         spyroState = DL_Reads[6]
+        sharkDeathlinkValue = DL_Reads[7]
 
         DL_writes = []
         if self.deathlink == 1:
@@ -1885,7 +2095,7 @@ class Spyro2Client(BizHawkClient):
             if "DeathLink" in ctx.tags and ctx.last_death_link + 1 < time.time():
                 if not self.sending_death_link and \
                         currentLevel in deathLinkLevels and \
-                        gameState not in [GameStatus.Cutscene, GameStatus.Loading, GameStatus.TitleScreen]:
+                        gameState not in [GameStatus.Cutscene, GameStatus.Loading, GameStatus.LoadingWorld, GameStatus.TitleScreen]:
                     cause = None
                     if health > 128:
                         cause = "Damage"
@@ -1899,6 +2109,8 @@ class Spyro2Client(BizHawkClient):
                         cause = "Drowned"
                     elif spyroState == SpyroStates.DeathSquash:
                         cause = "Squashed"
+                    elif currentLevel == LevelInGameIDs.AquariaTowers and gameState != GameStatus.Paused and sharkDeathlinkValue != 0:
+                        cause = "Eaten by sharks"
                     if cause is not None:
                         await self.send_deathlink(ctx, cause)
                 # Player has respawned.
@@ -1907,7 +2119,8 @@ class Spyro2Client(BizHawkClient):
                             not (spyroState == SpyroStates.Flop and velocityFlag == 1 and 0x3b < animationLength) and \
                             spyroState != SpyroStates.DeathBurn and \
                             not (spyroState == SpyroStates.DeathDrowning and animationLength >= 116) and \
-                            spyroState != SpyroStates.DeathSquash:
+                            spyroState != SpyroStates.DeathSquash and \
+                            not (currentLevel == LevelInGameIDs.AquariaTowers and gameState != GameStatus.Paused and sharkDeathlinkValue != 0):
                         self.sending_death_link = False
             if self.pending_death_link:
                 if currentLevel not in deathLinkLevels:
@@ -1923,6 +2136,8 @@ class Spyro2Client(BizHawkClient):
 
     async def send_deathlink(self, ctx: "BizHawkClientContext", cause) -> None:
         self.sending_death_link = True
+        DL_writes = [(RAM.AquariaSharkDeathlink, 0x0.to_bytes(4, "little"), "MainRAM")]
+        await bizhawk.write(ctx.bizhawk_ctx, DL_writes)
         ctx.last_death_link = time.time()
         if cause == "Unknown":
             DeathText = ctx.player_names[ctx.slot] + " died in Spyro 2."

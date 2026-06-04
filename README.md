@@ -50,12 +50,13 @@ Please follow the options below corresponding to your choice of emulator. Linux 
 3. Extract the S2AP .zip file and note where S2AP.Desktop.exe is.
 4. Open Duckstation and load into Spyro 2: Ripto's Rage.
 5. In Duckstation, navigate to Settings > Game Properties > Console and select "Interpreter" under "Execution Mode".
-6. Start a new game (or if continuing an existing seed, load into that save file).
-7. Open S2AP.Desktop.exe, the Spyro 2 client.  You will likely want to do so as an administrator.
-8. In the top left of the Spyro 2 client, click the "burger" menu to open the settings page.
-9. Enter your host, slot, and optionally your password.
-10. Click Connect.
-11. Start playing!
+6. (Recommended) In Duckstation, navigate to Settings > Game Properties > Emulation and set Runahead to "Disabled". Filler items may not apply correctly if this is enabled.
+7. Start a new game (or if continuing an existing seed, load into that save file).
+8. Open S2AP.Desktop.exe, the Spyro 2 client.  You will likely want to do so as an administrator.
+9. In the top left of the Spyro 2 client, click the "burger" menu to open the settings page.
+10. Enter your host, slot, and optionally your password.
+11. Click Connect.
+12. Start playing!
 
 #### For BizHawk:
 
@@ -175,18 +176,15 @@ The following commands (starting with a / for BizHawk and an ! for Duckstation) 
 
 ## Known Issues and Tentative Roadmap
 
-As of v2.0.0, 24 Apr 2026:
+As of v2.1.0, 4 Jun 2026:
 ### Known Issues
-- Sharks in Aquaria Towers do not trigger Death Link.
 - During Gemsanity, loading into an existing save may release some gem% checks incorrectly, based on what you've collected rather than received.
-- Connecting to the client in a homeworld may warp Spyro or unlock doors based on your vanilla completion, not what you have received. This is fixed if using the game patch.
 - Starting with Moneybags Unlocks when Moneybagssanity is vanilla will give you extra gems after beating Ripto.
 - If your YAML file allows Archipelago to randomly pick settings, Universal Tracker may not track correctly.
 
 Please report in the Spyro 2 thread of the Archipelago Discord, or here on GitHub, if you encounter any unexpected behavior!
 
 ### Current Roadmap:
-- Sparx powerups as items (extended range, always point to nearest gem, extra hit point cheat code)
 - Add locks around powerups
 - Implement Entrance Randomizer
 - Support PAL and NTSC-J

@@ -14,7 +14,8 @@ from .Items import (Spyro2Item, Spyro2ItemCategory, item_dictionary, key_item_na
 from .Locations import (Spyro2Location, Spyro2LocationCategory, location_tables,
     location_dictionary, location_name_groups)
 from .Options import Spyro2Option, GoalOptions, GemsanityOptions, GemsanityLocationOptions, MoneybagsOptions, \
-    RandomizeGemColorOptions, LevelLockOptions, TrickDifficultyOptions, spyro_options_groups, AbilityOptions, GemsanityRewardOptions
+    RandomizeGemColorOptions, LevelLockOptions, TrickDifficultyOptions, spyro_options_groups, AbilityOptions, \
+    GemsanityRewardOptions, MusicsanityOptions
 from .Logic import Logic, BaseLogic, EasyLogic, MediumLogic, CustomLogic
 from .Rules import get_level_rules
 from .Client import Spyro2Client
@@ -43,7 +44,61 @@ class Spyro2Web(WebWorld):
     )
     game_info_languages = ["en"]
     tutorials = [setup_en]
-
+    options_presets = {
+        "Short Game": {
+            "goal": "ripto",
+            "enable_open_world": True,
+            "start_with_abilities": True,
+            "open_world_warp_unlocks": True,
+            "ripto_door_orbs": 30, #This number is a shot in the dark for what a brisk game would be
+        },
+        "Completionist": {
+            "goal": "100_percent",
+            "enable_gem_checks": True,
+            "enable_skillpoint_checks": True,
+            "enable_life_bottle_checks": True,
+        },
+        "Very Easy Mode": {
+            "goal": "ripto",
+            "enable_open_world": True,
+            "start_with_abilities": True,
+            "open_world_warp_unlocks": True,
+            "permanent_fireball_ability": "start_with",
+            "enable_filler_color_change": True,
+            "colossus_starting_goals": 2,
+            "idol_easy_fish": True,
+            "hurricos_easy_lightning_orbs": True,
+            "breeze_required_gears": 25,
+            "scorch_bombo_settings": "attackless_first_only",
+            "fracture_easy_earthshapers": True,
+            "magma_spyro_starting_popcorn": 6,
+            "easy_gulp": True,
+        },
+        "Hard Mode": {
+            "goal": "epilogue",
+            "death_link": True,
+            "enable_skillpoint_checks": True,
+            "ripto_door_orbs": 55,
+            "double_jump_ability": "off",
+            "permanent_fireball_ability": "off",
+            "enable_filler_extra_lives": False,
+            "trap_filler_percent": 100,
+            "enable_trap_damage_sparx": True,
+            "enable_trap_sparxless": True,
+            "enable_trap_invisibility": True,
+            "enable_progressive_sparx_health": "sparxless",
+            "magma_hunter_starting_popcorn": 2, #I remember this being hard already so 2/9 is pushing it
+        },
+        "Speedrunner Strategies Required": {
+            "trick_difficulty": "medium_tricks",
+            "moneybags_settings": "moneybagssanity",
+        },
+        "Open World with Level Locks": {
+            "enable_open_world": True,
+            "open_world_warp_unlocks": True,
+            "level_lock_options": "keys",
+        },
+    }
 
 class Spyro2World(World):
     """
@@ -58,9 +113,10 @@ class Spyro2World(World):
     data_version = 0
     base_id = 1230000
     enabled_location_categories: Set[Spyro2LocationCategory]
-    required_client_version = (0, 5, 0)
+    # Effectively, minimum version of AP required.
+    required_client_version = (0, 6, 1)
     # TODO: Remember to update this!
-    ap_world_version = "2.0.0"
+    ap_world_version = "2.1.0"
     item_name_to_id = Spyro2Item.get_name_to_id()
     location_name_to_id = Spyro2Location.get_name_to_id()
     item_name_groups = item_name_groups
@@ -358,6 +414,7 @@ class Spyro2World(World):
                 name == "Dragon Shores Token" and self.options.goal.value == GoalOptions.TEN_TOKENS:
             item_classification = ItemClassification.progression
         elif item_dictionary[name].category in useful_categories or \
+                name in ["Extended Sparx Range", "Sparx Gem Finder", "Extra Hit Point"] or \
                 not self.options.enable_progressive_sparx_logic.value and name == 'Progressive Sparx Health Upgrade' or \
                 name in ["Double Jump Ability"] and self.options.trick_difficulty.value == TrickDifficultyOptions.OFF:
             item_classification = ItemClassification.useful
@@ -681,6 +738,45 @@ class Spyro2World(World):
                 [self.random.randint(0, 16777216), self.random.randint(0, 16777216)],
             ]
 
+        main_level_music_changes = {}
+        music_array_changes = {}
+        if self.options.musicsanity.value != MusicsanityOptions.OFF:
+            homeworld_music = {0: 0}
+            if self.options.streamer_music.value:
+                homeworld_music[9] = 0
+                homeworld_music[21] = 0
+            else:
+                homeworld_music[9] = 11
+                homeworld_music[21] = 29
+            boss_music = {8: 10, 20: 28, 28: 37}
+            level_music = {1: 1, 2: 2, 3: 4, 4: 6, 5: 7, 6: 8, 7: 9, 10: 12, 11: 16, 12: 18, 13: 20, 14: 21, 15: 22,
+                           16: 23, 17: 24, 18: 2, 19: 27, 22: 30, 23: 31, 24: 33, 25: 34, 26: 35, 27: 36}
+            # minigame_music = {3: 3, 5: 5, 13: 13, 14: 14, 15: 15, 17: 17, 19: 19, 25: 25, 26: 26, 32: 32}
+            if self.options.musicsanity.value in [MusicsanityOptions.LIKE_WITH_LIKE]:
+                homeworld_values = [x for x in homeworld_music.values()]
+                boss_values = [x for x in boss_music.values()]
+                level_values = [x for x in level_music.values()]
+                self.random.shuffle(homeworld_values)
+                self.random.shuffle(boss_values)
+                self.random.shuffle(level_values)
+                for key in homeworld_music.keys():
+                    main_level_music_changes[key] = homeworld_values.pop(0)
+                for key in boss_music.keys():
+                    main_level_music_changes[key] = boss_values.pop(0)
+                for key in level_music.keys():
+                    main_level_music_changes[key] = level_values.pop(0)
+            else:
+                all_music = homeworld_music
+                all_music.update(boss_music)
+                all_music.update(level_music)
+                all_music_values = [x for x in all_music.values()]
+                self.random.shuffle(all_music_values)
+                for key in all_music.keys():
+                    main_level_music_changes[key] = all_music_values.pop(0)
+        elif self.options.streamer_music.value:
+            main_level_music_changes[9] = 0
+            main_level_music_changes[21] = 0
+
         slot_data = {
             "options": {
                 "goal": self.options.goal.value,
@@ -690,6 +786,7 @@ class Spyro2World(World):
                 "open_world_warp_unlocks": self.options.open_world_warp_unlocks.value,
                 "start_with_abilities": self.options.start_with_abilities.value,
                 "wt_warp_options": self.options.wt_warp_options.value,
+                "open_professor_door": self.options.open_professor_door.value,
                 "level_lock_options": self.options.level_lock_options.value,
                 "level_unlocks": self.options.level_unlocks.value,
                 "enable_25_pct_gem_checks": self.options.enable_25_pct_gem_checks.value,
@@ -716,8 +813,12 @@ class Spyro2World(World):
                 "enable_trap_damage_sparx": self.options.enable_trap_damage_sparx.value,
                 "enable_trap_sparxless": self.options.enable_trap_sparxless.value,
                 "enable_trap_invisibility": self.options.enable_trap_invisibility.value,
+                "enable_trap_lazy_sparx": self.options.enable_trap_lazy_sparx.value,
                 "enable_progressive_sparx_health": self.options.enable_progressive_sparx_health.value,
                 "enable_progressive_sparx_logic": self.options.enable_progressive_sparx_logic.value,
+                "sparx_gem_finder": self.options.sparx_gem_finder.value,
+                "extended_sparx_range": self.options.extended_sparx_range.value,
+                "extra_hit_point": self.options.extra_hit_point.value,
                 "double_jump_ability": self.options.double_jump_ability.value,
                 "permanent_fireball_ability": self.options.permanent_fireball_ability.value,
                 "trick_difficulty": self.options.trick_difficulty.value,
@@ -745,6 +846,10 @@ class Spyro2World(World):
                 "gold_gem_color": colors[3][1],
                 "pink_gem_shadow_color": colors[4][0],
                 "pink_gem_color": colors[4][1],
+                "musicsanity": self.options.musicsanity.value,
+                "streamer_music": self.options.streamer_music.value,
+                "main_level_music_array_changes": main_level_music_changes,
+                "music_array_changes": music_array_changes
             },
             "gemsanity_ids": gemsanity_locations,
             "level_orb_requirements": self.level_orb_requirements,

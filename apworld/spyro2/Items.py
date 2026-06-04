@@ -72,6 +72,10 @@ _all_items = [Spyro2ItemData(row[0], row[1], row[2]) for row in [
     ("Permanent Fireball Ability", 1021, Spyro2ItemCategory.ABILITY),
     ("Destructive Spyro", 1022, Spyro2ItemCategory.MISC),
     ("Normal Spyro", 1023, Spyro2ItemCategory.MISC),
+    ("Sparx Gem Finder", 1024, Spyro2ItemCategory.MISC),
+    ("Extended Sparx Range", 1025, Spyro2ItemCategory.MISC),
+    ("Extra Hit Point", 1026, Spyro2ItemCategory.MISC),
+    ("Lazy Sparx Trap", 1027, Spyro2ItemCategory.TRAP),
 
     ("Moneybags Unlock - Crystal Glacier Bridge", 3000, Spyro2ItemCategory.MONEYBAGS),
     ("Moneybags Unlock - Aquaria Towers Submarine", 3001, Spyro2ItemCategory.MONEYBAGS),
@@ -580,6 +584,16 @@ def BuildItemPool(world, count, options, locked_levels):
         item_pool.append(item_dictionary["Progressive Sparx Health Upgrade"])
         remaining_count = remaining_count - 1
 
+    if options.sparx_gem_finder == AbilityOptions.IN_POOL:
+        item_pool.append(item_dictionary["Sparx Gem Finder"])
+        remaining_count = remaining_count - 1
+    if options.extended_sparx_range == AbilityOptions.IN_POOL:
+        item_pool.append(item_dictionary["Extended Sparx Range"])
+        remaining_count = remaining_count - 1
+    if options.extra_hit_point == AbilityOptions.IN_POOL:
+        item_pool.append(item_dictionary["Extra Hit Point"])
+        remaining_count = remaining_count - 1
+
     if remaining_count < 0:
         raise OptionError(f"The options you have selected have {remaining_count * -1} more items than locations. You must choose options that add at least this many more locations.")
 
@@ -609,18 +623,19 @@ def BuildItemPool(world, count, options, locked_levels):
             allowed_trap_items.append(item)
         elif item.name == 'Invisibility Trap' and options.enable_trap_invisibility:
             allowed_trap_items.append(item)
+        elif item.name == 'Lazy Sparx Trap' and options.enable_trap_lazy_sparx:
+            allowed_trap_items.append(item)
         elif item.name == "Normal Spyro" and (options.enable_filler_color_change or options.enable_filler_big_head_mode or len(allowed_misc_items) == 0):
             for i in range(0, 4):
                 allowed_misc_items.append(item)
 
+    trap_percent = options.trap_filler_percent.value
     if remaining_count > 0 and options.trap_filler_percent.value > 0 and len(allowed_trap_items) == 0:
-        raise OptionError(f"Trap percentage is set to {options.trap_filler_percent.value}, but none have been turned on.")
-    if remaining_count > 0 and options.trap_filler_percent.value < 100 and len(allowed_misc_items) == 0:
-        raise OptionError(f"{100 - options.trap_filler_percent.value} percent of filler items are meant to be non-traps, but no non-trap items have been turned on.")
+        trap_percent = 0
 
     # Get the correct blend of traps and filler items.
     for i in range(remaining_count):
-        if multiworld.random.random() * 100 < options.trap_filler_percent.value:
+        if multiworld.random.random() * 100 < trap_percent:
             itemList = [item for item in allowed_trap_items]
         else:
             itemList = [item for item in allowed_misc_items]

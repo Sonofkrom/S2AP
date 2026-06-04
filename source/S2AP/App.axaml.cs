@@ -39,8 +39,8 @@ namespace S2AP;
 public partial class App : Application
 {
     // TODO: Remember to set this in S2AP.Desktop as well.
-    public static string Version = "2.0.0";
-    public static List<string> SupportedVersions = ["1.2.0-rc", "1.2.0", "2.0.0-rc", "2.0.0"];
+    public static string Version = "2.1.0";
+    public static List<string> SupportedVersions = ["2.0.1", "2.1.0"];
 
     public static MainWindowViewModel Context;
     public static ArchipelagoClient Client { get; set; }
@@ -48,14 +48,13 @@ public partial class App : Application
     public static List<ILocation> GameLocations { get; set; }
     private static readonly object _lockObject = new object();
     private static ConcurrentQueue<string> _cosmeticEffects { get; set; }
-    private static byte _sparxUpgrades { get; set; }
     private static bool _hasSubmittedGoal { get; set; }
     private static bool _useQuietHints { get; set; }
     private static int _unlockedLevels { get; set; }
-    private static Timer _sparxTimer { get; set; }
     private static Timer _loadGameTimer { get; set; }
     private static Timer _abilitiesTimer { get; set; }
     private static Timer _cosmeticsTimer { get; set; }
+    private static long _lazySparxEnd { get; set; }
     private static MoneybagsOptions _moneybagsOption { get; set; }
     private static PortalTextColor _portalTextColor { get; set; }
     private static LevelInGameIDs _previousLevel { get; set; }
@@ -166,7 +165,6 @@ public partial class App : Application
         }
         Context.Host = lastConnectionDetails["host"];
         Context.Slot = lastConnectionDetails["slot"];
-        _sparxUpgrades = 0;
         _hasSubmittedGoal = false;
         _useQuietHints = true;
         // No level ID set
@@ -650,6 +648,20 @@ public partial class App : Application
                         Memory.Write(Addresses.InvisibleAddress2, (short)0);
                     });
                     break;
+                case "Lazy Sparx Trap":
+                    await Task.Run(async () =>
+                    {
+                        long currentTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        if (currentTimestamp > _lazySparxEnd)
+                        {
+                            _lazySparxEnd = currentTimestamp + 30;
+                        }
+                        else
+                        {
+                            _lazySparxEnd = _lazySparxEnd + 30;
+                        }
+                    });
+                    break;
                 case "Destructive Spyro":
                     await Task.Run(async () =>
                     {
@@ -752,7 +764,7 @@ public partial class App : Application
                     }
                     break;
                 case "Progressive Sparx Health Upgrade":
-                    _sparxUpgrades++;
+                    // To avoid desyncs, these are recounted in real time.
                     break;
                 case "Double Jump Ability":
                 case "Permanent Fireball Ability":
@@ -931,7 +943,16 @@ public partial class App : Application
             }
             HandleMoneybagsUnlocks();
             HandleInnerWTWarpAccess();
+
+            // PhoenixAki addition: open professor's door if professor's option is enabled.
+            int doorOption = int.Parse(Client.Options?.GetValueOrDefault("open_professor_door", "0").ToString());
+            if (doorOption == 1)
+            {
+                Memory.Write(Addresses.APDoorAddress, (short)1);
+            }
+
             CheckGoalCondition();
+            HandleSparxAbilities();
             byte lifeCount = Memory.ReadByte(Addresses.PlayerLives);
             AbilityOptions doubleJumpOption = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("double_jump_ability", "0").ToString());
             int hasDoubleJumpItem = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Double Jump Ability").Count() ?? 0);
@@ -978,31 +999,32 @@ public partial class App : Application
                 int animationLength = Memory.ReadInt(Addresses.PlayerAnimationLength);
                 byte spyroState = Memory.ReadByte(Addresses.SpyroStateAddress);
                 byte spyroVelocityFlag = Memory.ReadByte(Addresses.PlayerVelocityStatus);
+                int sharkDeathLink = Memory.ReadInt(Addresses.AquariaSharkDeathlink);
                 LevelInGameIDs[] deathLinkLevels = [
                     LevelInGameIDs.SummerForest,
-                LevelInGameIDs.Glimmer,
-                LevelInGameIDs.Colossus,
-                LevelInGameIDs.IdolSprings,
-                LevelInGameIDs.Hurricos,
-                LevelInGameIDs.SunnyBeach,
-                LevelInGameIDs.AquariaTowers,
-                LevelInGameIDs.CrushsDungeon,
-                LevelInGameIDs.AutumnPlains,
-                LevelInGameIDs.BreezeHarbor,
-                LevelInGameIDs.SkelosBadlands,
-                LevelInGameIDs.CrystalGlacier,
-                LevelInGameIDs.Zephyr,
-                LevelInGameIDs.Scorch,
-                LevelInGameIDs.FractureHills,
-                LevelInGameIDs.MagmaCone,
-                LevelInGameIDs.ShadyOasis,
-                LevelInGameIDs.GulpsOverlook,
-                LevelInGameIDs.WinterTundra,
-                LevelInGameIDs.MysticMarsh,
-                LevelInGameIDs.CloudTemples,
-                LevelInGameIDs.RoboticaFarms,
-                LevelInGameIDs.Metropolis,
-                LevelInGameIDs.RiptosArena
+                    LevelInGameIDs.Glimmer,
+                    LevelInGameIDs.Colossus,
+                    LevelInGameIDs.IdolSprings,
+                    LevelInGameIDs.Hurricos,
+                    LevelInGameIDs.SunnyBeach,
+                    LevelInGameIDs.AquariaTowers,
+                    LevelInGameIDs.CrushsDungeon,
+                    LevelInGameIDs.AutumnPlains,
+                    LevelInGameIDs.BreezeHarbor,
+                    LevelInGameIDs.SkelosBadlands,
+                    LevelInGameIDs.CrystalGlacier,
+                    LevelInGameIDs.Zephyr,
+                    LevelInGameIDs.Scorch,
+                    LevelInGameIDs.FractureHills,
+                    LevelInGameIDs.MagmaCone,
+                    LevelInGameIDs.ShadyOasis,
+                    LevelInGameIDs.GulpsOverlook,
+                    LevelInGameIDs.WinterTundra,
+                    LevelInGameIDs.MysticMarsh,
+                    LevelInGameIDs.CloudTemples,
+                    LevelInGameIDs.RoboticaFarms,
+                    LevelInGameIDs.Metropolis,
+                    LevelInGameIDs.RiptosArena
                 ];
 
                 if (
@@ -1013,6 +1035,7 @@ public partial class App : Application
                     deathLinkLevels.Contains(currentLevel) &&
                     gameStatus != GameStatus.Cutscene &&
                     gameStatus != GameStatus.Loading &&
+                    gameStatus != GameStatus.LoadingWorld &&
                     gameStatus != GameStatus.TitleScreen &&
                     (
                         health > 128 ||
@@ -1020,7 +1043,8 @@ public partial class App : Application
                         (spyroState == (byte)SpyroStates.Flop && spyroVelocityFlag == 1 && 0x3b < animationLength) ||
                         spyroState == (byte)SpyroStates.DeathBurn ||
                         spyroState == (byte)SpyroStates.DeathDrowning && animationLength >= 116 ||
-                        spyroState == (byte)SpyroStates.DeathSquash
+                        spyroState == (byte)SpyroStates.DeathSquash ||
+                        currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0
                     )
                 )
                 {
@@ -1050,6 +1074,11 @@ public partial class App : Application
                     {
                         deathlinkCause = "Squashed";
                     }
+                    else if (currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0)
+                    {
+                        deathlinkCause = "Eaten by sharks";
+                        Memory.Write(Addresses.AquariaSharkDeathlink, 0);
+                    }
                     Log.Logger.Information($"Sending DeathLink. Cause: {deathlinkCause}");
                     if (deathlinkCause == "Unknown")
                     {
@@ -1068,7 +1097,8 @@ public partial class App : Application
                         (spyroState == (byte)SpyroStates.Flop && spyroVelocityFlag == 1 && 0x3b < animationLength) ||
                         spyroState == (byte)SpyroStates.DeathBurn ||
                         spyroState == (byte)SpyroStates.DeathDrowning && animationLength >= 116 ||
-                        spyroState == (byte)SpyroStates.DeathSquash
+                        spyroState == (byte)SpyroStates.DeathSquash ||
+                        currentLevel == LevelInGameIDs.AquariaTowers && gameStatus != GameStatus.Paused && sharkDeathLink != 0
                     )
                 )
                 {
@@ -1077,7 +1107,7 @@ public partial class App : Application
                 }
             }
 
-            if (gameStatus != GameStatus.Paused && gameStatus != GameStatus.LoadingWorld)
+            if (gameStatus != GameStatus.Paused && gameStatus != GameStatus.LoadingWorld && gameStatus != GameStatus.Cutscene)
             {
                 if (gemsanityOption != GemsanityOptions.Off)
                 {
@@ -1091,6 +1121,13 @@ public partial class App : Application
                     // Probably easier to just patch.
                     //Memory.Write(Addresses.localGemLoadFixAddress, 0);
                     //Memory.Write(Addresses.globalGemLoadFixAddress, 0);
+
+                    // Disable repeated 400/400 popup by always skipping the code instead of when gem count is not 400.
+                    uint gemPopupCode = Memory.ReadUInt(Addresses.gemPopupAddress);
+                    if (gemPopupCode == 0x14620012)                             // bne v1,v0,0x80039780
+                    {
+                        Memory.Write(Addresses.gemPopupAddress, 0x0800e5e0);    // j 0x80039780
+                    }
                 }
                 if (currentLevel == LevelInGameIDs.Colossus)
                 {
@@ -1126,6 +1163,21 @@ public partial class App : Application
                             Memory.Write(thiefZCoordinate, 0);
                         }
                     }
+                }
+                else if (currentLevel == LevelInGameIDs.AquariaTowers)
+                {
+                    // Take an empty block of space and use it for DeathLink handling code for sharks.
+                    // This block sets Addresses.AquariaSharkDeathlink to 1 if the sharks kill Spyro, then calls normal OnDeath code.
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode, 0x24020001);      // li v0, 0x1
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 4, 0x3c018008);  // lui at, 0x8008
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 8, 0xac224788);  // sw v0, 0x4788(at)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 12, 0x0);        // nop
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 16, 0x0c00cb9d); // jal OnDeath (0x80032e74)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 20, 0x0);        // nop
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 24, 0x0801e23c); // j 0x800788f0 (AquariaSharkDeathJAL + 8)
+                    Memory.Write(Addresses.AquariaSharkDeathlinkCode + 28, 0x0);        // nop
+
+                    Memory.Write(Addresses.AquariaSharkDeathJAL, 0x080211e4);           // j 0x80084790 (AquariaSharkDeathlinkCode)
                 }
                 else if (currentLevel == LevelInGameIDs.BreezeHarbor)
                 {
@@ -1338,27 +1390,6 @@ public partial class App : Application
     }
     
     /**
-     * Handles the Sparx health upgrades within the game loop.
-     */
-    private static async void HandleMaxSparxHealth(object source, ElapsedEventArgs e)
-    {
-        if (!Helpers.IsInGame() || Client.ItemState == null || Client.CurrentSession == null)
-        {
-            return;
-        }
-        byte currentHealth = Memory.ReadByte(Addresses.PlayerHealth);
-        // Don't adjust negative health, which breaks deathlink.
-        if (currentHealth <= 128 && currentHealth > _sparxUpgrades)
-        {
-            Memory.WriteByte(Addresses.PlayerHealth, _sparxUpgrades);
-        }
-        if (_sparxUpgrades == 3)
-        {
-            _sparxTimer.Enabled = false;
-        }
-    }
-    
-    /**
      * Changes Spyro's color and big head mode, if there are any queued effects.
      * 
      * Also handles gem cosmetics and level lock options, which would be better moved elsewhere.
@@ -1423,6 +1454,7 @@ public partial class App : Application
                 }
             }
         }
+        // Cosmetics
         Memory.Write(Addresses.RedGemShadow, int.Parse(Client.Options?.GetValueOrDefault("red_gem_shadow_color", "0").ToString()));
         Memory.Write(Addresses.RedGemColor, int.Parse(Client.Options?.GetValueOrDefault("red_gem_color", "0").ToString()));
         Memory.Write(Addresses.GreenGemShadow, int.Parse(Client.Options?.GetValueOrDefault("green_gem_shadow_color", "0").ToString()));
@@ -1465,6 +1497,41 @@ public partial class App : Application
                 Memory.WriteByte(Addresses.PortalTextGreen, 64);
                 Memory.WriteByte(Addresses.PortalTextBlue, 0);
                 break;
+        }
+        bool musicValuesChanged = false;
+        Dictionary<int, int>? mainLevelMusicChanges = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, int>>(
+            Client.Options?.GetValueOrDefault("main_level_music_array_changes", new Dictionary<int, int>()).ToString()
+        );
+        if (mainLevelMusicChanges != null)
+        {
+            foreach (int levelID in mainLevelMusicChanges.Keys)
+            {
+                byte song = Memory.ReadByte(Addresses.MainLevelMusicArray + (uint)levelID);
+                if (song != (byte)mainLevelMusicChanges[levelID])
+                {
+                    Memory.WriteByte(Addresses.MainLevelMusicArray + (uint)levelID, (byte)mainLevelMusicChanges[levelID]);
+                    musicValuesChanged = true;
+                }
+            }
+        }
+        if (musicValuesChanged)
+        {
+            byte currentLevel = Memory.ReadByte(Addresses.CurrentLevelAddress);
+            if (mainLevelMusicChanges.ContainsKey((int)currentLevel))
+            {
+                uint currentLevelSongStartOffset = 0x15f90 + Memory.ReadUInt(Addresses.FullMusicArray + (uint)(8 * mainLevelMusicChanges[(int)currentLevel]));
+                uint currentLevelSongTimestamp = Memory.ReadUInt(Addresses.CurrentMusicData + 4);
+                ushort currentLevelSongLength = Memory.ReadUShort(Addresses.FullMusicArray + (uint)(4 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+                short currentLevelSongChannel = Memory.ReadShort(Addresses.FullMusicArray + (uint)(6 + 8 * mainLevelMusicChanges[(int)currentLevel]));
+                Memory.Write(Addresses.CurrentMusicData, currentLevelSongStartOffset);
+                if (currentLevelSongTimestamp < currentLevelSongStartOffset || currentLevelSongStartOffset + 60 > currentLevelSongStartOffset + currentLevelSongLength)
+                {
+                    Memory.Write(Addresses.CurrentMusicData + 4, currentLevelSongStartOffset);
+                }
+                Memory.Write(Addresses.CurrentMusicData + 8, currentLevelSongStartOffset + currentLevelSongLength);
+                Memory.Write(Addresses.CurrentMusicData + 12, currentLevelSongChannel);
+                Memory.WriteByte(Addresses.CurrentMusicStatus, (byte)1);
+            }
         }
         if (
             _cosmeticEffects.Count > 0 &&
@@ -1629,12 +1696,16 @@ public partial class App : Application
                 rerouteWarp = true;
             }
         }
-        if (warpOption == WTWarpOptions.WallOrb)
+        else if (warpOption == WTWarpOptions.WallOrb)
         {
             if (Memory.ReadBit(Addresses.WTWallOrbAddress, Addresses.WTWallOrbBit))
             {
                 rerouteWarp = true;
             }
+        }
+        else if (warpOption == WTWarpOptions.Always)
+        {
+            rerouteWarp = true;
         }
         Memory.Write(Addresses.WTWarpAddress, (short)(rerouteWarp ? 1 : 0));
     }
@@ -1733,7 +1804,109 @@ public partial class App : Application
             }
         }
     }
-    
+
+    /**
+     * Handles Spyro 3-style Sparx abilities like gem finder, as well as max health.
+     */
+    private static void HandleSparxAbilities()
+    {
+        if (!Helpers.IsInGame() || Client.ItemState == null || Client.CurrentSession == null)
+        {
+            return;
+        }
+        GameStatus gameStatus = (GameStatus)Memory.ReadByte(Addresses.GameStatus);
+        if (gameStatus == GameStatus.Paused || gameStatus == GameStatus.LoadingWorld || gameStatus == GameStatus.Cutscene)
+        {
+            return;
+        }
+        byte currentHealth = Memory.ReadByte(Addresses.PlayerHealth);
+        // Doing these checks trades efficency for correctness.
+        // We could probably do this check only upon connecting or receiving
+        // a health upgrade, but this is guaranteed to be correct.
+        ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
+        byte maxHealth = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Progressive Sparx Health Upgrade").Count() ?? 0);
+        byte extraHitPoint = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Extra Hit Point").Count() ?? 0);
+        if (sparxOption == ProgressiveSparxHealthOptions.Off)
+        {
+            maxHealth = 3;  // Ignore Progressive Sparx Health Upgrade items when the setting is off.
+        }
+        else if (sparxOption == ProgressiveSparxHealthOptions.Blue)
+        {
+            maxHealth += 2;
+        }
+        else if (sparxOption == ProgressiveSparxHealthOptions.Green)
+        {
+            maxHealth += 1;
+        }
+        if (sparxOption != ProgressiveSparxHealthOptions.TrueSparxless)
+        {
+            // Ensure behavior matches the cheat code, and avoid rendering issues from more max health than intended.
+            if (extraHitPoint > 1)
+            {
+                extraHitPoint = 1;
+            }
+            maxHealth += extraHitPoint;
+        }
+        // Unlike Spyro 3, the player respawns at maxHealth, so this handles most cases, except immediately on connect.
+        Memory.WriteByte(Addresses.MaxHealth, maxHealth);
+        // Don't adjust negative health, which breaks deathlink.
+        if (currentHealth <= 128 && currentHealth > maxHealth)
+        {
+            Memory.WriteByte(Addresses.PlayerHealth, maxHealth);
+        }
+
+        AbilityOptions sparxGemFinder = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("sparx_gem_finder", "0").ToString());
+        AbilityOptions extendedSparxRange = (AbilityOptions)int.Parse(Client.Options?.GetValueOrDefault("extended_sparx_range", "0").ToString());
+
+        if (sparxGemFinder != AbilityOptions.Vanilla)
+        {
+            LevelInGameIDs currentLevel = (LevelInGameIDs)Memory.ReadByte(Addresses.CurrentLevelAddress);
+            if (Addresses.SparxGemFinderLookup.ContainsKey(currentLevel))
+            {
+                bool hasGemFinder = (Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Sparx Gem Finder").Count() ?? 0) > 0;
+                if (hasGemFinder)
+                {
+                    Memory.Write(Addresses.SparxGemFinderLookup[currentLevel][0], Addresses.SparxGemFinderLookup[currentLevel][1]);
+                }
+                else
+                {
+                    Memory.Write(Addresses.SparxGemFinderLookup[currentLevel][0], Addresses.SparxGemFinderLookup[currentLevel][2]);
+                    Memory.Write(Addresses.NearestGem, 0);  // Sparx can get locked pointing at nonexistant objects if this isn't forced to be null.
+                }
+            }
+        }
+
+        if (_lazySparxEnd > DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+        {
+            Memory.Write(Addresses.SparxHorizontalRange, 1);
+            Memory.Write(Addresses.SparxVerticalRange, 1);
+        }
+        else if (extendedSparxRange == AbilityOptions.InPool)
+        {
+            bool isRiptoDefeated = (Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Ripto Defeated").Count() ?? 0) > 0;
+            bool hasExtendedRange = (Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Extended Sparx Range").Count() ?? 0) > 0;
+            int horizontalRange = 2062;
+            int verticalRange = 640;
+            if (hasExtendedRange)
+            {
+                horizontalRange *= 2;
+                verticalRange *= 2;
+            }
+            if (isRiptoDefeated)
+            {
+                // Counteract the in-game effect that doubles these when Ripto is defeated.
+                horizontalRange /= 2;
+                verticalRange /= 2;
+            }
+            Memory.Write(Addresses.SparxHorizontalRange, horizontalRange);
+            Memory.Write(Addresses.SparxVerticalRange, verticalRange);
+        } else
+        {
+            Memory.Write(Addresses.SparxHorizontalRange, 2062);
+            Memory.Write(Addresses.SparxVerticalRange, 640);
+        }
+    }
+
     /**
      * Turns off big head mode and also flat Spyro mode.
      */
@@ -2073,24 +2246,6 @@ public partial class App : Application
         _cosmeticsTimer.Interval = 5000;
         _cosmeticsTimer.Enabled = true;
 
-        ProgressiveSparxHealthOptions sparxOption = (ProgressiveSparxHealthOptions)int.Parse(Client.Options?.GetValueOrDefault("enable_progressive_sparx_health", "0").ToString());
-        if (sparxOption != ProgressiveSparxHealthOptions.Off)
-        {
-            _sparxUpgrades = (byte)(Client.CurrentSession?.Items?.AllItemsReceived?.Where(x => x.ItemName == "Progressive Sparx Health Upgrade").Count() ?? 0);
-            if (sparxOption == ProgressiveSparxHealthOptions.Blue)
-            {
-                _sparxUpgrades += 2;
-            }
-            else if (sparxOption == ProgressiveSparxHealthOptions.Green)
-            {
-                _sparxUpgrades += 1;
-            }
-            _sparxTimer = new Timer();
-            _sparxTimer.Elapsed += new ElapsedEventHandler(HandleMaxSparxHealth);
-            _sparxTimer.Interval = 500;
-            _sparxTimer.Enabled = true;
-        }
-
         _moneybagsOption = (MoneybagsOptions)int.Parse(Client.Options?.GetValueOrDefault("moneybags_settings", "0").ToString());
         _portalTextColor = (PortalTextColor)int.Parse(Client.Options?.GetValueOrDefault("portal_gem_collection_color", "0").ToString());
 
@@ -2118,12 +2273,12 @@ public partial class App : Application
     private static void OnDisconnected(object sender, EventArgs args)
     {
         // Avoid ongoing timers affecting a new game.
-        _sparxUpgrades = 0;
         _hasSubmittedGoal = false;
         _useQuietHints = true;
         _handleGemsanity = false;
         _unlockedLevels = 0;
         _requiredOrbs = 65;
+        _lazySparxEnd = 0;
 
         if (_deathLinkService != null)
         {
@@ -2144,11 +2299,6 @@ public partial class App : Application
         {
             _cosmeticsTimer.Enabled = false;
             _cosmeticsTimer = null;
-        }
-        if (_sparxTimer != null)
-        {
-            _sparxTimer.Enabled = false;
-            _sparxTimer = null;
         }
     }
 }
